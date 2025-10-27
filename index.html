@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ayush Neekhar</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --font-family: "Space Mono", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      --bg: #f1e9da;
+      --text: #1f2227;
+      --accent: #4f46e5;
+      --muted: #575d6b;
+      --surface: #fdf3dd;
+      --outline: rgba(31, 34, 39, 0.18);
+      --surface-tint: rgba(255, 244, 224, 0.72);
+      background-color: var(--bg);
+      color: var(--text);
+    }
+
+    :root[data-theme="dark"] {
+      --bg: #17191c;
+      --text: #e7e6f2;
+      --accent: #facc15;
+      --muted: #9aa6c6;
+      --surface: #1f2227;
+      --outline: rgba(231, 230, 242, 0.28);
+      --surface-tint: rgba(23, 25, 28, 0.65);
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: var(--font-family);
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .animate {
+      opacity: 0;
+      transform: translateY(12px);
+      animation: fadeUp 0.6s ease var(--delay, 0s) forwards;
+    }
+
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 64px 24px 96px;
+      display: flex;
+      flex-direction: column;
+      gap: 64px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 20px;
+      overflow: hidden;
+      flex-wrap: wrap;
+    }
+
+    h1,
+    h2 {
+      margin: 0;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    h1 {
+      font-size: clamp(2.2rem, 3vw, 2.8rem);
+    }
+
+    h2 {
+      font-size: clamp(1.4rem, 2vw, 1.7rem);
+    }
+
+    p {
+      margin: 12px 0;
+      line-height: 1.6;
+      color: var(--muted);
+    }
+
+    .intro p {
+      color: var(--text);
+    }
+
+    .intro {
+      min-width: 0;
+    }
+
+    .status-ticker {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--outline);
+      border-radius: 12px;
+      background-color: var(--surface-tint);
+      padding: 10px 0;
+      margin-top: 24px;
+    }
+
+    .status-track {
+      display: flex;
+      gap: 32px;
+      animation: ticker 18s linear infinite;
+      white-space: nowrap;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+    }
+
+    .status-item::before {
+      content: "•";
+      margin: 0 12px 0 0;
+      color: var(--accent);
+    }
+
+    @keyframes ticker {
+      0% {
+        transform: translateX(0);
+      }
+
+      100% {
+        transform: translateX(-50%);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .status-track {
+        animation: none;
+      }
+    }
+
+    .theme-toggle {
+      border: 1px solid var(--outline);
+      background-color: var(--surface-tint);
+      color: var(--text);
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      border-radius: 18px;
+      font-family: var(--font-family);
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+    }
+
+    .theme-toggle:hover,
+    .theme-toggle:focus {
+      border-color: var(--accent);
+      color: var(--accent);
+      background-color: rgba(255, 255, 255, 0.85);
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12);
+      outline: none;
+    }
+
+    .theme-toggle .icon {
+      width: 16px;
+      height: 16px;
+      display: none;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.6;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    :root[data-theme="light"] .theme-toggle .icon--sun {
+      display: block;
+    }
+
+    :root[data-theme="dark"] .theme-toggle .icon--moon {
+      display: block;
+    }
+
+    section {
+      border-top: 1px solid var(--muted);
+      padding-top: 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .experience-list {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .experience {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .experience-title {
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .experience-meta {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .experience-highlights {
+      margin: 0;
+      padding-left: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .experience-highlights li {
+      color: var(--muted);
+    }
+
+    .current-work {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .current-work-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .current-work-card {
+      border: 1px solid var(--outline);
+      border-radius: 12px;
+      padding: 18px;
+      background-color: var(--surface-tint);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .current-work-card h3 {
+      margin: 0;
+      font-size: 1.05rem;
+      color: var(--text);
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .current-work-card h3 svg {
+      width: 12px;
+      height: 12px;
+      stroke: currentColor;
+      stroke-width: 1.6;
+      fill: none;
+    }
+
+    .current-work-card p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .current-work-card a {
+      text-decoration: none;
+      color: var(--accent);
+    }
+
+    .header-controls {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex: 0 0 auto;
+    }
+
+    .resume-link {
+      border: 1px solid var(--outline);
+      background-color: var(--surface-tint);
+      color: var(--text);
+      padding: 9px 14px;
+      border-radius: 20px;
+      text-decoration: none;
+      font-size: 0.88rem;
+      transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+    }
+
+    .resume-link:hover,
+    .resume-link:focus {
+      color: var(--accent);
+      border-color: var(--accent);
+      background-color: rgba(255, 255, 255, 0.85);
+      outline: none;
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12);
+    }
+
+    .resume-link svg {
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
+      stroke-width: 1.6;
+      fill: none;
+    }
+
+    .contact-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .contact-links a {
+      text-decoration: none;
+      color: var(--text);
+      padding-bottom: 2px;
+      border-bottom: 1px solid transparent;
+      transition: color 0.2s ease, border-color 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .contact-links a:hover,
+    .contact-links a:focus {
+      color: var(--accent);
+      border-color: var(--accent);
+      outline: none;
+    }
+
+    .contact-links .icon {
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      stroke-width: 1.6;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+    }
+
+    @media (max-width: 640px) {
+      header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .theme-toggle {
+        align-self: flex-start;
+      }
+    }
+
+    .header-buttons {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <header>
+      <div class="intro">
+        <div class="header-buttons">
+          <h1 class="animate" style="--delay: 0s">Ayush Neekhar</h1>
+          <div class="header-controls animate" style="--delay: 0.12s">
+            <button class="theme-toggle" type="button" aria-label="Toggle color theme">
+              <svg class="icon icon--sun" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="4"></circle>
+                <line x1="12" y1="2" x2="12" y2="4"></line>
+                <line x1="12" y1="20" x2="12" y2="22"></line>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                <line x1="2" y1="12" x2="4" y2="12"></line>
+                <line x1="20" y1="12" x2="22" y2="12"></line>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+              </svg>
+              <svg class="icon icon--moon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M21 12.79A9 9 0 0111.21 3 7 7 0 1021 12.79z"></path>
+              </svg>
+            </button>
+            <a class="resume-link"
+              href="https://drive.google.com/file/d/1I2iUGbvzXtUzVW8872KCo2tSceH3pocP/view?usp=sharing" target="_blank"
+              rel="noreferrer">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 3v12" />
+                <polyline points="8 11 12 15 16 11" />
+                <rect x="4" y="19" width="16" height="2" rx="1" />
+              </svg>
+              <span>Résumé</span>
+            </a>
+          </div>
+        </div>
+        <div class="status-ticker animate" style="--delay: 0.05s">
+          <div class="status-track">
+            <span class="status-item">Shipping RN performance wins at Zepto</span>
+            <span class="status-item">Exploring AI agents for cross-platform tooling</span>
+            <span class="status-item">Dialing in C++ builds for React Native modules</span>
+            <span class="status-item">Chasing street triple RS dream rides</span>
+            <span class="status-item">Shipping RN performance wins at Zepto</span>
+            <span class="status-item">Exploring AI agents for cross-platform tooling</span>
+            <span class="status-item">Dialing in C++ builds for React Native modules</span>
+            <span class="status-item">Chasing street triple RS dream rides</span>
+          </div>
+        </div>
+        <p class="animate" style="--delay: 0.1s">Software Development Engineer focused on React Native and full-stack
+          product velocity.</p>
+        <p class="animate" style="--delay: 0.2s">Currently building rider-first experiences at Zepto in Bengaluru,
+          originally from Delhi.</p>
+        <p class="animate" style="--delay: 0.3s">I chase clean performance, love fitness, bikes, and I'm deep into AI
+          agents with a soft spot for React Native and crafty C++ tooling.</p>
+      </div>
+
+    </header>
+
+    <section aria-labelledby="experience-heading">
+      <h2 id="experience-heading" class="animate" style="--delay: 0.1s">Where I've built</h2>
+      <div class="experience-list">
+        <article class="experience animate" style="--delay: 0.2s">
+          <div class="experience-title">Zepto · Software Development Engineer</div>
+          <div class="experience-meta">Oct 2024 — Present · Bengaluru, Karnataka</div>
+          <ul class="experience-highlights">
+            <li>Designed the flexible rider onboarding flow that unlocked new revenue and retention.</li>
+            <li>Reduced crash rates by modernizing background actions and pushed observability across the stack.</li>
+            <li>Shaped rider programs and admin tooling to tighten operations and developer workflows.</li>
+          </ul>
+        </article>
+        <article class="experience animate" style="--delay: 0.3s">
+          <div class="experience-title">Bajaj Finserv Health · Software Development Engineer</div>
+          <div class="experience-meta">Oct 2022 — Oct 2024 · Pune, Maharashtra</div>
+          <ul class="experience-highlights">
+            <li>Shipped revenue-driving React Native features end-to-end in launch-critical timelines.</li>
+            <li>Integrated Bluetooth medical data, Apple HealthKit, Fitpass, and CleverTap to scale engagement.</li>
+            <li>Lifted UI test coverage to 84%+ with focused tooling and disciplined delivery.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section aria-labelledby="current-heading">
+      <div class="current-work animate" style="--delay: 0.15s">
+        <h2 id="current-heading">What I'm building now</h2>
+        <div class="current-work-list">
+          <article class="current-work-card">
+            <h3>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 5v14"></path>
+                <polyline points="5 12 12 19 19 12"></polyline>
+              </svg>
+              <a href="https://github.com/ayushneekhar/rn-turbo-secure-storage" target="_blank"
+                rel="noreferrer">rn-turbo-secure-storage</a>
+            </h3>
+            <p>New-architecture secure storage primitives for React Native, written with Kotlin + TurboModules.</p>
+          </article>
+          <article class="current-work-card">
+            <h3>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 5v14"></path>
+                <polyline points="5 12 12 19 19 12"></polyline>
+              </svg>
+              <a href="https://github.com/ayushneekhar/WiproGoodWid" target="_blank" rel="noreferrer">WiproGoodWid</a>
+            </h3>
+            <p>React Native playground focused on speeding up greenfield builds and modular feature experiments.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="contact-heading">
+      <h2 id="contact-heading" class="animate" style="--delay: 0.1s">Say hi</h2>
+      <div class="contact-links">
+        <a class="animate" style="--delay: 0.15s" href="mailto:a.neekhar01@gmail.com">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+            <polyline points="3 7.5 12 13 21 7.5"></polyline>
+          </svg>
+          Email
+        </a>
+        <a class="animate" style="--delay: 0.25s" href="https://github.com/ayushneekhar" target="_blank"
+          rel="noreferrer">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M9 19c-4 1-4-2-6-2m12 4v-3.87a3.37 3.37 0 00-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0018 4.77 5.06 5.06 0 0017.91 1S16.73.65 14 2.48a13.38 13.38 0 00-5 0C6.27.65 5.09 1 5.09 1A5.06 5.06 0 005 4.77a5.44 5.44 0 00-1.5 3.77c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 009 19v3">
+            </path>
+          </svg>
+          GitHub
+        </a>
+        <a class="animate" style="--delay: 0.3s" href="https://www.linkedin.com/in/ayushneekhar" target="_blank"
+          rel="noreferrer">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="2" y="9" width="4" height="12"></rect>
+            <circle cx="4" cy="4" r="2"></circle>
+            <path d="M8 9h4v12H8z"></path>
+            <path d="M12 13a4 4 0 018 0v8h-4v-7a2 2 0 00-4 0"></path>
+          </svg>
+          LinkedIn
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      const root = document.documentElement;
+      const toggle = document.querySelector(".theme-toggle");
+      const THEME_KEY = "ayush-neekhar-theme";
+
+      const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      const storedTheme = localStorage.getItem(THEME_KEY);
+      const initialTheme = storedTheme || (prefersDark ? "dark" : "light");
+
+      setTheme(initialTheme);
+
+      toggle.addEventListener("click", () => {
+        const nextTheme = root.dataset.theme === "light" ? "dark" : "light";
+        setTheme(nextTheme);
+      });
+
+      function setTheme(theme) {
+        root.dataset.theme = theme;
+        localStorage.setItem(THEME_KEY, theme);
+      }
+    })();
+  </script>
+</body>
+
+</html>
