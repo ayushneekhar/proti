@@ -121,7 +121,8 @@
     }
 
     .status-track {
-      display: flex;
+      display: inline-flex;
+      align-items: center;
       gap: 32px;
       animation: ticker 18s linear infinite;
       white-space: nowrap;
@@ -129,6 +130,8 @@
       text-transform: uppercase;
       letter-spacing: 1px;
       color: var(--muted);
+      width: max-content;
+      will-change: transform;
     }
 
     .status-item::before {
@@ -486,7 +489,8 @@
               </svg>
               <a href="https://github.com/ayushneekhar/WiproGoodWid" target="_blank" rel="noreferrer">WiproGoodWid</a>
             </h3>
-            <p>React Native playground focused on speeding up greenfield builds and modular feature experiments.</p>
+            <p>Little app to control your wipro smart bulbs (or any Tuya controllable smart IoT bulbs) though your
+              phone!</p>
           </article>
         </div>
       </div>
