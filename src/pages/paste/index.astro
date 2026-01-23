@@ -54,7 +54,7 @@ import Layout from '../../layouts/Layout.astro';
         <input type="hidden" id="language-value" value="javascript" />
         
         <!-- Markdown Preview Toggle (hidden by default) -->
-        <button id="md-preview-btn" class="tool-btn hidden" type="button" title="Preview Markdown">
+        <button id="md-preview-btn" class="tool-btn with-tooltip hidden" type="button" data-tooltip="Preview Markdown">
           <svg class="icon-edit" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path>
             <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path>
@@ -67,7 +67,7 @@ import Layout from '../../layouts/Layout.astro';
         
         <!-- JSON Tools (hidden by default) -->
         <div id="json-tools" class="json-tools hidden">
-          <button id="json-format-btn" class="tool-btn" type="button" title="Format JSON">
+          <button id="json-format-btn" class="tool-btn with-tooltip" type="button" data-tooltip="Format JSON">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <line x1="21" y1="10" x2="3" y2="10"></line>
               <line x1="21" y1="6" x2="3" y2="6"></line>
@@ -75,7 +75,7 @@ import Layout from '../../layouts/Layout.astro';
               <line x1="21" y1="18" x2="3" y2="18"></line>
             </svg>
           </button>
-          <button id="json-minify-btn" class="tool-btn" type="button" title="Minify JSON">
+          <button id="json-minify-btn" class="tool-btn with-tooltip" type="button" data-tooltip="Minify JSON">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <polyline points="4 14 10 14 10 20"></polyline>
               <polyline points="20 10 14 10 14 4"></polyline>
@@ -683,13 +683,13 @@ import Layout from '../../layouts/Layout.astro';
       markdownPreview.classList.remove('hidden');
       editorContainer.classList.add('hidden');
       mdPreviewBtn.classList.add('active');
-      mdPreviewBtn.title = 'Edit Markdown';
+      mdPreviewBtn.setAttribute('data-tooltip', 'Edit Markdown');
     } else {
       // Back to edit mode
       markdownPreview.classList.add('hidden');
       editorContainer.classList.remove('hidden');
       mdPreviewBtn.classList.remove('active');
-      mdPreviewBtn.title = 'Preview Markdown';
+      mdPreviewBtn.setAttribute('data-tooltip', 'Preview Markdown');
       editor.focus();
     }
   }
@@ -1324,6 +1324,54 @@ import Layout from '../../layouts/Layout.astro';
     display: none;
   }
 
+  /* Styled Tooltips */
+  .with-tooltip {
+    position: relative;
+  }
+
+  .with-tooltip::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 6px 10px;
+    background-color: var(--text);
+    color: var(--bg);
+    font-size: 0.7rem;
+    font-weight: 500;
+    white-space: nowrap;
+    border-radius: 6px;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  .with-tooltip::before {
+    content: '';
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: 50%;
+    transform: translateX(-50%);
+    border: 4px solid transparent;
+    border-top-color: var(--text);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  .with-tooltip:hover::after,
+  .with-tooltip:hover::before,
+  .with-tooltip:focus::after,
+  .with-tooltip:focus::before {
+    opacity: 1;
+    visibility: visible;
+  }
+
   /* Markdown preview button icons */
   #md-preview-btn .icon-preview {
     display: block;
@@ -1587,6 +1635,12 @@ import Layout from '../../layouts/Layout.astro';
     .tool-btn svg {
       width: 12px;
       height: 12px;
+    }
+
+    /* Hide tooltips on mobile (touch devices) */
+    .with-tooltip::after,
+    .with-tooltip::before {
+      display: none;
     }
 
     .json-error {

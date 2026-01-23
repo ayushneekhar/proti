@@ -1,6 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { createHighlighter } from 'shiki';
+import { marked } from 'marked';
 
 interface PasteData {
   content: string;
@@ -14,6 +15,7 @@ const { id } = Astro.params;
 let paste: PasteData | null = null;
 let error: string | null = null;
 let highlightedLines: string[] = [];
+let renderedMarkdown: string = '';
 
 try {
   const { env } = Astro.locals.runtime;
@@ -21,6 +23,14 @@ try {
   
   if (data) {
     paste = JSON.parse(data);
+    
+    // If it's markdown, render it
+    if (paste.language === 'markdown') {
+      renderedMarkdown = await marked.parse(paste.content, {
+        breaks: true,
+        gfm: true,
+      });
+    }
     
     // Map language names to Shiki language identifiers
     const languageMap: Record<string, string> = {
@@ -92,6 +102,7 @@ const getDaysRemaining = (createdAt: string) => {
 const daysRemaining = paste ? getDaysRemaining(paste.createdAt) : 0;
 const shareUrl = `https://neekhar.dev/paste/${id}`;
 const lineCount = highlightedLines.length || 1;
+const isMarkdown = paste?.language === 'markdown';
 
 // Generate description for OG tags
 const ogDescription = paste 
@@ -129,6 +140,18 @@ const ogDescription = paste
             <span class="language-badge">{paste.language}</span>
           </>
         )}
+        {isMarkdown && (
+          <button id="md-view-toggle" class="toolbar-btn with-tooltip active" data-tooltip="View raw">
+            <svg class="icon-raw" viewBox="0 0 24 24" aria-hidden="true">
+              <polyline points="16 18 22 12 16 6"></polyline>
+              <polyline points="8 6 2 12 8 18"></polyline>
+            </svg>
+            <svg class="icon-rendered" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+          </button>
+        )}
         <button class="theme-toggle" type="button" aria-label="Toggle color theme">
           <svg class="icon icon--sun" viewBox="0 0 24 24" aria-hidden="true">
             <circle cx="12" cy="12" r="4"></circle>
@@ -147,19 +170,19 @@ const ogDescription = paste
         </button>
         {paste && (
           <>
-            <button id="copy-code-btn" class="toolbar-btn" data-content={paste.content} title="Copy code">
+            <button id="copy-code-btn" class="toolbar-btn with-tooltip" data-content={paste.content} data-tooltip="Copy code">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                 <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
               </svg>
             </button>
-            <button id="copy-url-btn" class="toolbar-btn" data-url={shareUrl} title="Copy URL">
+            <button id="copy-url-btn" class="toolbar-btn with-tooltip" data-url={shareUrl} data-tooltip="Copy URL">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"></path>
                 <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"></path>
               </svg>
             </button>
-            <a href="/paste" class="new-btn" title="New paste">
+            <a href="/paste" class="new-btn with-tooltip" data-tooltip="Create new paste">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <line x1="12" y1="5" x2="12" y2="19"></line>
                 <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -178,16 +201,21 @@ const ogDescription = paste
         <a href="/paste" class="new-paste-btn">Create New Paste</a>
       </div>
     ) : paste && (
-      <div class="code-container">
-        <div class="line-numbers">
-          {Array.from({ length: lineCount }, (_, i) => (
-            <span>{i + 1}</span>
-          ))}
+      <>
+        {isMarkdown && (
+          <div id="markdown-preview" class="markdown-preview" set:html={renderedMarkdown} />
+        )}
+        <div id="code-container" class={`code-container ${isMarkdown ? 'hidden' : ''}`}>
+          <div class="line-numbers">
+            {Array.from({ length: lineCount }, (_, i) => (
+              <span>{i + 1}</span>
+            ))}
+          </div>
+          <pre class="code-content"><code>{highlightedLines.map((line, i) => (
+            <span class="code-line" set:html={line || ' '} />
+          ))}</code></pre>
         </div>
-        <pre class="code-content"><code>{highlightedLines.map((line, i) => (
-          <span class="code-line" set:html={line || ' '} />
-        ))}</code></pre>
-      </div>
+      </>
     )}
   </div>
 </Layout>
@@ -195,11 +223,20 @@ const ogDescription = paste
 <script>
   const copyCodeBtn = document.getElementById('copy-code-btn');
   const copyUrlBtn = document.getElementById('copy-url-btn');
+  const mdViewToggle = document.getElementById('md-view-toggle');
+  const markdownPreview = document.getElementById('markdown-preview');
+  const codeContainer = document.getElementById('code-container');
 
   async function copyWithFeedback(btn: HTMLElement, text: string) {
     await navigator.clipboard.writeText(text);
     btn.classList.add('copied');
-    setTimeout(() => btn.classList.remove('copied'), 1500);
+    btn.setAttribute('data-tooltip', 'Copied!');
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      // Restore original tooltip
+      if (btn === copyCodeBtn) btn.setAttribute('data-tooltip', 'Copy code');
+      if (btn === copyUrlBtn) btn.setAttribute('data-tooltip', 'Copy URL');
+    }, 1500);
   }
 
   copyCodeBtn?.addEventListener('click', () => {
@@ -211,6 +248,27 @@ const ogDescription = paste
     const url = copyUrlBtn.getAttribute('data-url');
     if (url) copyWithFeedback(copyUrlBtn, url);
   });
+
+  // Markdown view toggle
+  if (mdViewToggle && markdownPreview && codeContainer) {
+    let showingRendered = true;
+    
+    mdViewToggle.addEventListener('click', () => {
+      showingRendered = !showingRendered;
+      
+      if (showingRendered) {
+        markdownPreview.classList.remove('hidden');
+        codeContainer.classList.add('hidden');
+        mdViewToggle.classList.add('active');
+        mdViewToggle.setAttribute('data-tooltip', 'View raw');
+      } else {
+        markdownPreview.classList.add('hidden');
+        codeContainer.classList.remove('hidden');
+        mdViewToggle.classList.remove('active');
+        mdViewToggle.setAttribute('data-tooltip', 'View rendered');
+      }
+    });
+  }
 </script>
 
 <style>
@@ -326,12 +384,18 @@ const ogDescription = paste
     border: 1px solid var(--outline);
     border-radius: 6px;
     cursor: pointer;
-    transition: border-color 0.2s ease, color 0.2s ease;
+    transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
   }
 
   .toolbar-btn:hover {
     border-color: var(--accent);
     color: var(--accent);
+  }
+
+  .toolbar-btn.active {
+    background-color: var(--accent);
+    border-color: var(--accent);
+    color: var(--bg);
   }
 
   .toolbar-btn.copied {
@@ -345,6 +409,68 @@ const ogDescription = paste
     stroke: currentColor;
     stroke-width: 2;
     fill: none;
+  }
+
+  /* Markdown view toggle icons */
+  #md-view-toggle .icon-rendered {
+    display: block;
+  }
+  #md-view-toggle .icon-raw {
+    display: none;
+  }
+  #md-view-toggle.active .icon-rendered {
+    display: none;
+  }
+  #md-view-toggle.active .icon-raw {
+    display: block;
+  }
+
+  /* Styled Tooltips */
+  .with-tooltip {
+    position: relative;
+  }
+
+  .with-tooltip::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 6px 10px;
+    background-color: var(--text);
+    color: var(--bg);
+    font-size: 0.7rem;
+    font-weight: 500;
+    white-space: nowrap;
+    border-radius: 6px;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  .with-tooltip::before {
+    content: '';
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: 50%;
+    transform: translateX(-50%);
+    border: 4px solid transparent;
+    border-top-color: var(--text);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  .with-tooltip:hover::after,
+  .with-tooltip:hover::before,
+  .with-tooltip:focus::after,
+  .with-tooltip:focus::before {
+    opacity: 1;
+    visibility: visible;
   }
 
   .new-btn {
@@ -376,11 +502,144 @@ const ogDescription = paste
     fill: none;
   }
 
+  .hidden {
+    display: none !important;
+  }
+
   .code-container {
     flex: 1;
     display: flex;
     overflow: auto;
     background-color: var(--surface-tint);
+  }
+
+  /* Markdown Preview */
+  .markdown-preview {
+    flex: 1;
+    overflow: auto;
+    padding: 32px;
+    background-color: var(--surface-tint);
+    max-width: 800px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  /* Markdown content styling */
+  .markdown-preview :global(h1),
+  .markdown-preview :global(h2),
+  .markdown-preview :global(h3),
+  .markdown-preview :global(h4),
+  .markdown-preview :global(h5),
+  .markdown-preview :global(h6) {
+    margin: 1.5em 0 0.5em;
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--text);
+  }
+
+  .markdown-preview :global(h1:first-child),
+  .markdown-preview :global(h2:first-child),
+  .markdown-preview :global(h3:first-child) {
+    margin-top: 0;
+  }
+
+  .markdown-preview :global(h1) { font-size: 2rem; }
+  .markdown-preview :global(h2) { font-size: 1.5rem; }
+  .markdown-preview :global(h3) { font-size: 1.25rem; }
+  .markdown-preview :global(h4) { font-size: 1.1rem; }
+
+  .markdown-preview :global(p) {
+    margin: 1em 0;
+    line-height: 1.7;
+    color: var(--text);
+  }
+
+  .markdown-preview :global(a) {
+    color: var(--accent);
+    text-decoration: none;
+  }
+
+  .markdown-preview :global(a:hover) {
+    text-decoration: underline;
+  }
+
+  .markdown-preview :global(code) {
+    font-family: var(--font-family);
+    background-color: var(--surface);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+
+  .markdown-preview :global(pre) {
+    background-color: var(--surface);
+    padding: 16px;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 1em 0;
+  }
+
+  .markdown-preview :global(pre code) {
+    background: none;
+    padding: 0;
+  }
+
+  .markdown-preview :global(blockquote) {
+    margin: 1em 0;
+    padding: 0.5em 1em;
+    border-left: 4px solid var(--accent);
+    background-color: var(--surface);
+    color: var(--muted);
+  }
+
+  .markdown-preview :global(ul),
+  .markdown-preview :global(ol) {
+    margin: 1em 0;
+    padding-left: 2em;
+    color: var(--text);
+  }
+
+  .markdown-preview :global(li) {
+    margin: 0.5em 0;
+    line-height: 1.6;
+  }
+
+  .markdown-preview :global(hr) {
+    border: none;
+    border-top: 1px solid var(--outline);
+    margin: 2em 0;
+  }
+
+  .markdown-preview :global(table) {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1em 0;
+  }
+
+  .markdown-preview :global(th),
+  .markdown-preview :global(td) {
+    border: 1px solid var(--outline);
+    padding: 8px 12px;
+    text-align: left;
+  }
+
+  .markdown-preview :global(th) {
+    background-color: var(--surface);
+    font-weight: 700;
+  }
+
+  .markdown-preview :global(img) {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+  }
+
+  .markdown-preview :global(strong) {
+    font-weight: 700;
+  }
+
+  .markdown-preview :global(em) {
+    font-style: italic;
   }
 
   .line-numbers {
@@ -521,6 +780,26 @@ const ogDescription = paste
     .code-content {
       font-size: 0.85rem;
       padding: 16px 12px;
+    }
+
+    .markdown-preview {
+      padding: 20px 16px;
+    }
+
+    .toolbar-btn {
+      width: 28px;
+      height: 28px;
+    }
+
+    .toolbar-btn svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    /* Hide tooltips on mobile (touch devices) */
+    .with-tooltip::after,
+    .with-tooltip::before {
+      display: none;
     }
   }
 </style>
