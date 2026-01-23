@@ -92,9 +92,18 @@ const getDaysRemaining = (createdAt: string) => {
 const daysRemaining = paste ? getDaysRemaining(paste.createdAt) : 0;
 const shareUrl = `https://neekhar.dev/paste/${id}`;
 const lineCount = highlightedLines.length || 1;
+
+// Generate description for OG tags
+const ogDescription = paste 
+  ? `${paste.language.charAt(0).toUpperCase() + paste.language.slice(1)} code snippet (${lineCount} lines) - View and copy this paste on neekhar.dev`
+  : 'Paste not found';
 ---
 
-<Layout title={paste ? `Paste ${id} | Ayush Neekhar` : 'Paste Not Found'}>
+<Layout 
+  title={paste ? `Paste ${id} | Ayush Neekhar` : 'Paste Not Found'}
+  description={ogDescription}
+  ogUrl={shareUrl}
+>
   <div class="paste-app">
     <header class="toolbar">
       <div class="toolbar-left">

@@ -2,7 +2,11 @@
 import Layout from '../../layouts/Layout.astro';
 ---
 
-<Layout title="Paste | Ayush Neekhar">
+<Layout 
+  title="Paste | Ayush Neekhar"
+  description="Create and share code snippets with syntax highlighting. Supports JavaScript, TypeScript, Python, and more."
+  ogUrl="https://neekhar.dev/paste"
+>
   <div class="paste-app">
     <header class="toolbar">
       <div class="toolbar-left">
@@ -16,23 +20,38 @@ import Layout from '../../layouts/Layout.astro';
         <span class="page-title">paste</span>
       </div>
       <div class="toolbar-right">
-        <select id="language-select" class="language-select">
-          <option value="javascript" selected>JavaScript</option>
-          <option value="typescript">TypeScript</option>
-          <option value="python">Python</option>
-          <option value="rust">Rust</option>
-          <option value="go">Go</option>
-          <option value="html">HTML</option>
-          <option value="css">CSS</option>
-          <option value="json">JSON</option>
-          <option value="markdown">Markdown</option>
-          <option value="sql">SQL</option>
-          <option value="shell">Shell</option>
-          <option value="yaml">YAML</option>
-          <option value="cpp">C++</option>
-          <option value="java">Java</option>
-          <option value="plaintext">Plain Text</option>
-        </select>
+        <div class="language-dropdown" id="language-dropdown">
+          <button 
+            type="button" 
+            class="language-trigger" 
+            id="language-trigger"
+            aria-haspopup="listbox"
+            aria-expanded="false"
+          >
+            <span class="language-trigger-text">JavaScript</span>
+            <svg class="dropdown-chevron" viewBox="0 0 24 24" aria-hidden="true">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+          <div class="language-menu" id="language-menu" role="listbox" aria-label="Select language">
+            <button type="button" class="language-option" data-value="javascript" role="option" aria-selected="true">JavaScript</button>
+            <button type="button" class="language-option" data-value="typescript" role="option">TypeScript</button>
+            <button type="button" class="language-option" data-value="python" role="option">Python</button>
+            <button type="button" class="language-option" data-value="rust" role="option">Rust</button>
+            <button type="button" class="language-option" data-value="go" role="option">Go</button>
+            <button type="button" class="language-option" data-value="html" role="option">HTML</button>
+            <button type="button" class="language-option" data-value="css" role="option">CSS</button>
+            <button type="button" class="language-option" data-value="json" role="option">JSON</button>
+            <button type="button" class="language-option" data-value="markdown" role="option">Markdown</button>
+            <button type="button" class="language-option" data-value="sql" role="option">SQL</button>
+            <button type="button" class="language-option" data-value="shell" role="option">Shell</button>
+            <button type="button" class="language-option" data-value="yaml" role="option">YAML</button>
+            <button type="button" class="language-option" data-value="cpp" role="option">C++</button>
+            <button type="button" class="language-option" data-value="java" role="option">Java</button>
+            <button type="button" class="language-option" data-value="plaintext" role="option">Plain Text</button>
+          </div>
+        </div>
+        <input type="hidden" id="language-value" value="javascript" />
         <button class="theme-toggle" type="button" aria-label="Toggle color theme">
           <svg class="icon icon--sun" viewBox="0 0 24 24" aria-hidden="true">
             <circle cx="12" cy="12" r="4"></circle>
@@ -69,7 +88,7 @@ import Layout from '../../layouts/Layout.astro';
   import { EditorState, Compartment } from '@codemirror/state';
   import { indentOnInput, bracketMatching, foldGutter, foldKeymap, indentUnit, syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language';
   import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
-  import { closeBrackets, closeBracketsKeymap, autocompletion, completionKeymap } from '@codemirror/autocomplete';
+  import { closeBrackets, closeBracketsKeymap, autocompletion, completionKeymap, type CompletionContext, type Completion } from '@codemirror/autocomplete';
   import { javascript } from '@codemirror/lang-javascript';
   import { python } from '@codemirror/lang-python';
   import { html } from '@codemirror/lang-html';
@@ -83,9 +102,272 @@ import Layout from '../../layouts/Layout.astro';
   import { yaml } from '@codemirror/lang-yaml';
   import { oneDark } from '@codemirror/theme-one-dark';
 
+  // Browser/JavaScript global completions
+  const jsGlobals: Completion[] = [
+    // Console
+    { label: 'console', type: 'variable', info: 'Console object for logging' },
+    { label: 'console.log', type: 'function', info: 'Log a message to the console', apply: 'console.log()' },
+    { label: 'console.error', type: 'function', info: 'Log an error message', apply: 'console.error()' },
+    { label: 'console.warn', type: 'function', info: 'Log a warning message', apply: 'console.warn()' },
+    { label: 'console.info', type: 'function', info: 'Log an info message', apply: 'console.info()' },
+    { label: 'console.table', type: 'function', info: 'Display tabular data', apply: 'console.table()' },
+    { label: 'console.dir', type: 'function', info: 'Display object properties', apply: 'console.dir()' },
+    { label: 'console.time', type: 'function', info: 'Start a timer', apply: 'console.time()' },
+    { label: 'console.timeEnd', type: 'function', info: 'End a timer', apply: 'console.timeEnd()' },
+    { label: 'console.group', type: 'function', info: 'Create a console group', apply: 'console.group()' },
+    { label: 'console.groupEnd', type: 'function', info: 'End a console group', apply: 'console.groupEnd()' },
+    { label: 'console.clear', type: 'function', info: 'Clear the console', apply: 'console.clear()' },
+    // Window/Document
+    { label: 'window', type: 'variable', info: 'Global window object' },
+    { label: 'document', type: 'variable', info: 'Document object' },
+    { label: 'document.getElementById', type: 'function', info: 'Get element by ID', apply: 'document.getElementById()' },
+    { label: 'document.querySelector', type: 'function', info: 'Query selector', apply: 'document.querySelector()' },
+    { label: 'document.querySelectorAll', type: 'function', info: 'Query selector all', apply: 'document.querySelectorAll()' },
+    { label: 'document.createElement', type: 'function', info: 'Create an element', apply: 'document.createElement()' },
+    { label: 'document.body', type: 'property', info: 'Document body element' },
+    { label: 'document.head', type: 'property', info: 'Document head element' },
+    // DOM methods
+    { label: 'addEventListener', type: 'function', info: 'Add event listener' },
+    { label: 'removeEventListener', type: 'function', info: 'Remove event listener' },
+    { label: 'appendChild', type: 'function', info: 'Append a child element' },
+    { label: 'removeChild', type: 'function', info: 'Remove a child element' },
+    { label: 'setAttribute', type: 'function', info: 'Set an attribute' },
+    { label: 'getAttribute', type: 'function', info: 'Get an attribute' },
+    { label: 'classList', type: 'property', info: 'Element class list' },
+    { label: 'innerHTML', type: 'property', info: 'Element inner HTML' },
+    { label: 'textContent', type: 'property', info: 'Element text content' },
+    { label: 'style', type: 'property', info: 'Element style' },
+    // Browser APIs
+    { label: 'fetch', type: 'function', info: 'Fetch API for HTTP requests', apply: 'fetch()' },
+    { label: 'navigator', type: 'variable', info: 'Navigator object' },
+    { label: 'location', type: 'variable', info: 'Location object' },
+    { label: 'history', type: 'variable', info: 'History object' },
+    { label: 'localStorage', type: 'variable', info: 'Local storage' },
+    { label: 'sessionStorage', type: 'variable', info: 'Session storage' },
+    { label: 'setTimeout', type: 'function', info: 'Set a timeout', apply: 'setTimeout(() => {}, )' },
+    { label: 'setInterval', type: 'function', info: 'Set an interval', apply: 'setInterval(() => {}, )' },
+    { label: 'clearTimeout', type: 'function', info: 'Clear a timeout', apply: 'clearTimeout()' },
+    { label: 'clearInterval', type: 'function', info: 'Clear an interval', apply: 'clearInterval()' },
+    { label: 'requestAnimationFrame', type: 'function', info: 'Request animation frame', apply: 'requestAnimationFrame()' },
+    // Built-in objects
+    { label: 'JSON', type: 'class', info: 'JSON object' },
+    { label: 'JSON.parse', type: 'function', info: 'Parse JSON string', apply: 'JSON.parse()' },
+    { label: 'JSON.stringify', type: 'function', info: 'Stringify to JSON', apply: 'JSON.stringify()' },
+    { label: 'Math', type: 'class', info: 'Math object' },
+    { label: 'Math.abs', type: 'function', info: 'Absolute value', apply: 'Math.abs()' },
+    { label: 'Math.floor', type: 'function', info: 'Round down', apply: 'Math.floor()' },
+    { label: 'Math.ceil', type: 'function', info: 'Round up', apply: 'Math.ceil()' },
+    { label: 'Math.round', type: 'function', info: 'Round to nearest', apply: 'Math.round()' },
+    { label: 'Math.random', type: 'function', info: 'Random number 0-1', apply: 'Math.random()' },
+    { label: 'Math.max', type: 'function', info: 'Maximum value', apply: 'Math.max()' },
+    { label: 'Math.min', type: 'function', info: 'Minimum value', apply: 'Math.min()' },
+    { label: 'Math.pow', type: 'function', info: 'Power', apply: 'Math.pow()' },
+    { label: 'Math.sqrt', type: 'function', info: 'Square root', apply: 'Math.sqrt()' },
+    { label: 'Math.PI', type: 'constant', info: 'Pi constant' },
+    // Array
+    { label: 'Array', type: 'class', info: 'Array constructor' },
+    { label: 'Array.from', type: 'function', info: 'Create array from iterable', apply: 'Array.from()' },
+    { label: 'Array.isArray', type: 'function', info: 'Check if array', apply: 'Array.isArray()' },
+    { label: 'map', type: 'function', info: 'Map array elements' },
+    { label: 'filter', type: 'function', info: 'Filter array elements' },
+    { label: 'reduce', type: 'function', info: 'Reduce array to single value' },
+    { label: 'forEach', type: 'function', info: 'Iterate over array' },
+    { label: 'find', type: 'function', info: 'Find element in array' },
+    { label: 'findIndex', type: 'function', info: 'Find index in array' },
+    { label: 'includes', type: 'function', info: 'Check if array includes value' },
+    { label: 'indexOf', type: 'function', info: 'Find index of value' },
+    { label: 'push', type: 'function', info: 'Add to end of array' },
+    { label: 'pop', type: 'function', info: 'Remove from end of array' },
+    { label: 'shift', type: 'function', info: 'Remove from start of array' },
+    { label: 'unshift', type: 'function', info: 'Add to start of array' },
+    { label: 'slice', type: 'function', info: 'Extract section of array' },
+    { label: 'splice', type: 'function', info: 'Change array contents' },
+    { label: 'concat', type: 'function', info: 'Concatenate arrays' },
+    { label: 'join', type: 'function', info: 'Join array to string' },
+    { label: 'sort', type: 'function', info: 'Sort array' },
+    { label: 'reverse', type: 'function', info: 'Reverse array' },
+    { label: 'every', type: 'function', info: 'Test all elements' },
+    { label: 'some', type: 'function', info: 'Test some elements' },
+    { label: 'flat', type: 'function', info: 'Flatten array' },
+    { label: 'flatMap', type: 'function', info: 'Map and flatten' },
+    // Object
+    { label: 'Object', type: 'class', info: 'Object constructor' },
+    { label: 'Object.keys', type: 'function', info: 'Get object keys', apply: 'Object.keys()' },
+    { label: 'Object.values', type: 'function', info: 'Get object values', apply: 'Object.values()' },
+    { label: 'Object.entries', type: 'function', info: 'Get object entries', apply: 'Object.entries()' },
+    { label: 'Object.assign', type: 'function', info: 'Copy properties', apply: 'Object.assign()' },
+    { label: 'Object.freeze', type: 'function', info: 'Freeze object', apply: 'Object.freeze()' },
+    { label: 'Object.fromEntries', type: 'function', info: 'Create object from entries', apply: 'Object.fromEntries()' },
+    // String
+    { label: 'String', type: 'class', info: 'String constructor' },
+    { label: 'toLowerCase', type: 'function', info: 'Convert to lowercase' },
+    { label: 'toUpperCase', type: 'function', info: 'Convert to uppercase' },
+    { label: 'trim', type: 'function', info: 'Trim whitespace' },
+    { label: 'split', type: 'function', info: 'Split string' },
+    { label: 'replace', type: 'function', info: 'Replace in string' },
+    { label: 'replaceAll', type: 'function', info: 'Replace all in string' },
+    { label: 'substring', type: 'function', info: 'Extract substring' },
+    { label: 'startsWith', type: 'function', info: 'Check string start' },
+    { label: 'endsWith', type: 'function', info: 'Check string end' },
+    { label: 'padStart', type: 'function', info: 'Pad string start' },
+    { label: 'padEnd', type: 'function', info: 'Pad string end' },
+    { label: 'charAt', type: 'function', info: 'Get character at index' },
+    { label: 'charCodeAt', type: 'function', info: 'Get char code at index' },
+    { label: 'length', type: 'property', info: 'Length of string/array' },
+    // Promise
+    { label: 'Promise', type: 'class', info: 'Promise constructor' },
+    { label: 'Promise.all', type: 'function', info: 'Wait for all promises', apply: 'Promise.all()' },
+    { label: 'Promise.race', type: 'function', info: 'Race promises', apply: 'Promise.race()' },
+    { label: 'Promise.resolve', type: 'function', info: 'Resolve promise', apply: 'Promise.resolve()' },
+    { label: 'Promise.reject', type: 'function', info: 'Reject promise', apply: 'Promise.reject()' },
+    { label: 'Promise.allSettled', type: 'function', info: 'Wait for all to settle', apply: 'Promise.allSettled()' },
+    { label: 'then', type: 'function', info: 'Promise then handler' },
+    { label: 'catch', type: 'function', info: 'Promise catch handler' },
+    { label: 'finally', type: 'function', info: 'Promise finally handler' },
+    // Other built-ins
+    { label: 'Date', type: 'class', info: 'Date constructor' },
+    { label: 'RegExp', type: 'class', info: 'RegExp constructor' },
+    { label: 'Map', type: 'class', info: 'Map constructor' },
+    { label: 'Set', type: 'class', info: 'Set constructor' },
+    { label: 'WeakMap', type: 'class', info: 'WeakMap constructor' },
+    { label: 'WeakSet', type: 'class', info: 'WeakSet constructor' },
+    { label: 'Symbol', type: 'class', info: 'Symbol constructor' },
+    { label: 'Error', type: 'class', info: 'Error constructor' },
+    { label: 'TypeError', type: 'class', info: 'TypeError constructor' },
+    { label: 'ReferenceError', type: 'class', info: 'ReferenceError constructor' },
+    { label: 'SyntaxError', type: 'class', info: 'SyntaxError constructor' },
+    // Keywords and common patterns
+    { label: 'async', type: 'keyword', info: 'Async function' },
+    { label: 'await', type: 'keyword', info: 'Await promise' },
+    { label: 'function', type: 'keyword', info: 'Function declaration' },
+    { label: 'const', type: 'keyword', info: 'Constant declaration' },
+    { label: 'let', type: 'keyword', info: 'Let declaration' },
+    { label: 'var', type: 'keyword', info: 'Var declaration' },
+    { label: 'return', type: 'keyword', info: 'Return statement' },
+    { label: 'if', type: 'keyword', info: 'If statement' },
+    { label: 'else', type: 'keyword', info: 'Else statement' },
+    { label: 'for', type: 'keyword', info: 'For loop' },
+    { label: 'while', type: 'keyword', info: 'While loop' },
+    { label: 'do', type: 'keyword', info: 'Do-while loop' },
+    { label: 'switch', type: 'keyword', info: 'Switch statement' },
+    { label: 'case', type: 'keyword', info: 'Case clause' },
+    { label: 'break', type: 'keyword', info: 'Break statement' },
+    { label: 'continue', type: 'keyword', info: 'Continue statement' },
+    { label: 'try', type: 'keyword', info: 'Try block' },
+    { label: 'catch', type: 'keyword', info: 'Catch block' },
+    { label: 'throw', type: 'keyword', info: 'Throw exception' },
+    { label: 'new', type: 'keyword', info: 'New operator' },
+    { label: 'class', type: 'keyword', info: 'Class declaration' },
+    { label: 'extends', type: 'keyword', info: 'Class extends' },
+    { label: 'import', type: 'keyword', info: 'Import statement' },
+    { label: 'export', type: 'keyword', info: 'Export statement' },
+    { label: 'default', type: 'keyword', info: 'Default export' },
+    { label: 'from', type: 'keyword', info: 'Import from' },
+    { label: 'typeof', type: 'keyword', info: 'Typeof operator' },
+    { label: 'instanceof', type: 'keyword', info: 'Instanceof operator' },
+    { label: 'null', type: 'keyword', info: 'Null value' },
+    { label: 'undefined', type: 'keyword', info: 'Undefined value' },
+    { label: 'true', type: 'keyword', info: 'Boolean true' },
+    { label: 'false', type: 'keyword', info: 'Boolean false' },
+    { label: 'this', type: 'keyword', info: 'This reference' },
+    { label: 'super', type: 'keyword', info: 'Super reference' },
+  ];
+
+  // Python completions
+  const pythonGlobals: Completion[] = [
+    { label: 'print', type: 'function', info: 'Print to console', apply: 'print()' },
+    { label: 'len', type: 'function', info: 'Get length', apply: 'len()' },
+    { label: 'range', type: 'function', info: 'Generate range', apply: 'range()' },
+    { label: 'str', type: 'function', info: 'Convert to string', apply: 'str()' },
+    { label: 'int', type: 'function', info: 'Convert to int', apply: 'int()' },
+    { label: 'float', type: 'function', info: 'Convert to float', apply: 'float()' },
+    { label: 'list', type: 'function', info: 'Create list', apply: 'list()' },
+    { label: 'dict', type: 'function', info: 'Create dictionary', apply: 'dict()' },
+    { label: 'set', type: 'function', info: 'Create set', apply: 'set()' },
+    { label: 'tuple', type: 'function', info: 'Create tuple', apply: 'tuple()' },
+    { label: 'bool', type: 'function', info: 'Convert to boolean', apply: 'bool()' },
+    { label: 'type', type: 'function', info: 'Get type', apply: 'type()' },
+    { label: 'isinstance', type: 'function', info: 'Check instance', apply: 'isinstance()' },
+    { label: 'input', type: 'function', info: 'Get user input', apply: 'input()' },
+    { label: 'open', type: 'function', info: 'Open file', apply: 'open()' },
+    { label: 'enumerate', type: 'function', info: 'Enumerate iterable', apply: 'enumerate()' },
+    { label: 'zip', type: 'function', info: 'Zip iterables', apply: 'zip()' },
+    { label: 'map', type: 'function', info: 'Map function', apply: 'map()' },
+    { label: 'filter', type: 'function', info: 'Filter function', apply: 'filter()' },
+    { label: 'sorted', type: 'function', info: 'Sort iterable', apply: 'sorted()' },
+    { label: 'reversed', type: 'function', info: 'Reverse iterable', apply: 'reversed()' },
+    { label: 'sum', type: 'function', info: 'Sum of iterable', apply: 'sum()' },
+    { label: 'min', type: 'function', info: 'Minimum value', apply: 'min()' },
+    { label: 'max', type: 'function', info: 'Maximum value', apply: 'max()' },
+    { label: 'abs', type: 'function', info: 'Absolute value', apply: 'abs()' },
+    { label: 'round', type: 'function', info: 'Round number', apply: 'round()' },
+    { label: 'all', type: 'function', info: 'All truthy', apply: 'all()' },
+    { label: 'any', type: 'function', info: 'Any truthy', apply: 'any()' },
+    { label: 'ord', type: 'function', info: 'Get char code', apply: 'ord()' },
+    { label: 'chr', type: 'function', info: 'Get char from code', apply: 'chr()' },
+    { label: 'hex', type: 'function', info: 'Convert to hex', apply: 'hex()' },
+    { label: 'bin', type: 'function', info: 'Convert to binary', apply: 'bin()' },
+    { label: 'hasattr', type: 'function', info: 'Has attribute', apply: 'hasattr()' },
+    { label: 'getattr', type: 'function', info: 'Get attribute', apply: 'getattr()' },
+    { label: 'setattr', type: 'function', info: 'Set attribute', apply: 'setattr()' },
+    { label: 'def', type: 'keyword', info: 'Define function' },
+    { label: 'class', type: 'keyword', info: 'Define class' },
+    { label: 'if', type: 'keyword', info: 'If statement' },
+    { label: 'elif', type: 'keyword', info: 'Elif statement' },
+    { label: 'else', type: 'keyword', info: 'Else statement' },
+    { label: 'for', type: 'keyword', info: 'For loop' },
+    { label: 'while', type: 'keyword', info: 'While loop' },
+    { label: 'try', type: 'keyword', info: 'Try block' },
+    { label: 'except', type: 'keyword', info: 'Except block' },
+    { label: 'finally', type: 'keyword', info: 'Finally block' },
+    { label: 'raise', type: 'keyword', info: 'Raise exception' },
+    { label: 'with', type: 'keyword', info: 'With statement' },
+    { label: 'as', type: 'keyword', info: 'As clause' },
+    { label: 'import', type: 'keyword', info: 'Import module' },
+    { label: 'from', type: 'keyword', info: 'Import from' },
+    { label: 'return', type: 'keyword', info: 'Return statement' },
+    { label: 'yield', type: 'keyword', info: 'Yield value' },
+    { label: 'lambda', type: 'keyword', info: 'Lambda function' },
+    { label: 'pass', type: 'keyword', info: 'Pass statement' },
+    { label: 'break', type: 'keyword', info: 'Break loop' },
+    { label: 'continue', type: 'keyword', info: 'Continue loop' },
+    { label: 'True', type: 'keyword', info: 'Boolean true' },
+    { label: 'False', type: 'keyword', info: 'Boolean false' },
+    { label: 'None', type: 'keyword', info: 'None value' },
+    { label: 'and', type: 'keyword', info: 'Logical and' },
+    { label: 'or', type: 'keyword', info: 'Logical or' },
+    { label: 'not', type: 'keyword', info: 'Logical not' },
+    { label: 'in', type: 'keyword', info: 'In operator' },
+    { label: 'is', type: 'keyword', info: 'Is operator' },
+    { label: 'self', type: 'keyword', info: 'Self reference' },
+    { label: 'async', type: 'keyword', info: 'Async function' },
+    { label: 'await', type: 'keyword', info: 'Await coroutine' },
+  ];
+
+  // Custom completion source for language-specific globals
+  function createGlobalsCompletionSource(globals: Completion[]) {
+    return (context: CompletionContext) => {
+      const word = context.matchBefore(/[\w.]+/);
+      if (!word || (word.from === word.to && !context.explicit)) return null;
+      
+      const text = word.text.toLowerCase();
+      const filtered = globals.filter(c => c.label.toLowerCase().includes(text));
+      
+      return {
+        from: word.from,
+        options: filtered,
+        validFor: /^[\w.]*$/,
+      };
+    };
+  }
+
+  const jsCompletionSource = createGlobalsCompletionSource(jsGlobals);
+  const pythonCompletionSource = createGlobalsCompletionSource(pythonGlobals);
+
   // Language compartment for dynamic language switching
   const languageCompartment = new Compartment();
   const themeCompartment = new Compartment();
+  const completionCompartment = new Compartment();
 
   // Get language extension based on selection
   function getLanguageExtension(lang: string) {
@@ -105,6 +387,20 @@ import Layout from '../../layouts/Layout.astro';
       case 'go': return javascript(); // Go syntax is similar enough for basic highlighting
       case 'shell': return []; // No specific shell support, fallback to plain
       default: return [];
+    }
+  }
+
+  // Get completion extension based on language
+  function getCompletionExtension(lang: string) {
+    switch (lang) {
+      case 'javascript':
+      case 'typescript':
+      case 'html': // HTML often contains JS
+        return autocompletion({ override: [jsCompletionSource] });
+      case 'python':
+        return autocompletion({ override: [pythonCompletionSource] });
+      default:
+        return autocompletion();
     }
   }
 
@@ -198,8 +494,119 @@ import Layout from '../../layouts/Layout.astro';
 
   // Create editor
   const container = document.getElementById('editor-container')!;
-  const languageSelect = document.getElementById('language-select') as HTMLSelectElement;
   const saveBtn = document.getElementById('save-btn') as HTMLButtonElement;
+  
+  // Custom dropdown elements
+  const languageDropdown = document.getElementById('language-dropdown')!;
+  const languageTrigger = document.getElementById('language-trigger')!;
+  const languageMenu = document.getElementById('language-menu')!;
+  const languageValue = document.getElementById('language-value') as HTMLInputElement;
+  const languageTriggerText = languageTrigger.querySelector('.language-trigger-text')!;
+  
+  // Get current language value
+  function getSelectedLanguage() {
+    return languageValue.value;
+  }
+  
+  // Toggle dropdown
+  function toggleDropdown(open?: boolean) {
+    const isOpen = open ?? !languageDropdown.classList.contains('open');
+    languageDropdown.classList.toggle('open', isOpen);
+    languageTrigger.setAttribute('aria-expanded', String(isOpen));
+    
+    if (isOpen) {
+      // Focus the selected option
+      const selected = languageMenu.querySelector('[aria-selected="true"]') as HTMLElement;
+      selected?.focus();
+    }
+  }
+  
+  // Close dropdown
+  function closeDropdown() {
+    toggleDropdown(false);
+  }
+  
+  // Select language
+  function selectLanguage(value: string, label: string) {
+    languageValue.value = value;
+    languageTriggerText.textContent = label;
+    
+    // Update aria-selected
+    languageMenu.querySelectorAll('.language-option').forEach(opt => {
+      opt.setAttribute('aria-selected', opt.getAttribute('data-value') === value ? 'true' : 'false');
+    });
+    
+    closeDropdown();
+    
+    // Update editor
+    editor.dispatch({
+      effects: [
+        languageCompartment.reconfigure(getLanguageExtension(value)),
+        completionCompartment.reconfigure(getCompletionExtension(value)),
+      ],
+    });
+    
+    // Return focus to editor
+    editor.focus();
+  }
+  
+  // Dropdown trigger click
+  languageTrigger.addEventListener('click', () => toggleDropdown());
+  
+  // Option click
+  languageMenu.addEventListener('click', (e) => {
+    const option = (e.target as HTMLElement).closest('.language-option') as HTMLElement;
+    if (option) {
+      selectLanguage(option.dataset.value!, option.textContent!);
+    }
+  });
+  
+  // Keyboard navigation
+  languageTrigger.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      toggleDropdown(true);
+    }
+  });
+  
+  languageMenu.addEventListener('keydown', (e) => {
+    const options = Array.from(languageMenu.querySelectorAll('.language-option')) as HTMLElement[];
+    const currentIndex = options.findIndex(opt => opt === document.activeElement);
+    
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        options[(currentIndex + 1) % options.length]?.focus();
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        options[(currentIndex - 1 + options.length) % options.length]?.focus();
+        break;
+      case 'Enter':
+      case ' ':
+        e.preventDefault();
+        const focused = document.activeElement as HTMLElement;
+        if (focused?.classList.contains('language-option')) {
+          selectLanguage(focused.dataset.value!, focused.textContent!);
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        closeDropdown();
+        languageTrigger.focus();
+        break;
+      case 'Tab':
+        closeDropdown();
+        break;
+    }
+  });
+  
+  // Close on outside click
+  document.addEventListener('click', (e) => {
+    if (!languageDropdown.contains(e.target as Node)) {
+      closeDropdown();
+    }
+  });
 
   const editor = new EditorView({
     state: EditorState.create({
@@ -217,7 +624,7 @@ import Layout from '../../layouts/Layout.astro';
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         bracketMatching(),
         closeBrackets(),
-        autocompletion(),
+        completionCompartment.of(getCompletionExtension(getSelectedLanguage())),
         rectangularSelection(),
         crosshairCursor(),
         highlightActiveLine(),
@@ -230,7 +637,7 @@ import Layout from '../../layouts/Layout.astro';
           ...completionKeymap,
           indentWithTab,
         ]),
-        languageCompartment.of(getLanguageExtension(languageSelect.value)),
+        languageCompartment.of(getLanguageExtension(getSelectedLanguage())),
         themeCompartment.of(isDarkMode() ? darkThemeExtension : lightTheme),
         EditorView.lineWrapping,
         EditorView.contentAttributes.of({ 'aria-label': 'Code editor' }),
@@ -241,13 +648,6 @@ import Layout from '../../layouts/Layout.astro';
 
   // Focus editor
   editor.focus();
-
-  // Language change handler
-  languageSelect.addEventListener('change', () => {
-    editor.dispatch({
-      effects: languageCompartment.reconfigure(getLanguageExtension(languageSelect.value)),
-    });
-  });
 
   // Theme change observer
   const themeObserver = new MutationObserver(() => {
@@ -277,7 +677,7 @@ import Layout from '../../layouts/Layout.astro';
         },
         body: JSON.stringify({
           content,
-          language: languageSelect.value,
+          language: getSelectedLanguage(),
         }),
       });
 
@@ -371,33 +771,128 @@ import Layout from '../../layouts/Layout.astro';
     gap: 8px;
   }
 
-  .language-select {
+  /* Custom Language Dropdown */
+  .language-dropdown {
+    position: relative;
+  }
+
+  .language-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     font-family: var(--font-family);
     font-size: 0.8rem;
-    padding: 6px 28px 6px 10px;
+    padding: 6px 10px;
     border: 1px solid var(--outline);
     border-radius: 6px;
     background-color: var(--surface-tint);
     color: var(--text);
     cursor: pointer;
-    transition: border-color 0.2s ease;
-    appearance: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23575d6b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 8px center;
-    background-size: 12px;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+    min-width: 100px;
+    justify-content: space-between;
   }
 
-  :root[data-theme="dark"] .language-select {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239aa6c6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-  }
-
-  .language-select:hover,
-  .language-select:focus {
+  .language-trigger:hover,
+  .language-trigger:focus {
     border-color: var(--accent);
     outline: none;
+  }
+
+  .language-dropdown.open .language-trigger {
+    border-color: var(--accent);
+    background-color: var(--surface);
+  }
+
+  .dropdown-chevron {
+    width: 12px;
+    height: 12px;
+    stroke: var(--muted);
+    stroke-width: 2;
+    fill: none;
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+  }
+
+  .language-dropdown.open .dropdown-chevron {
+    transform: rotate(180deg);
+  }
+
+  .language-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    min-width: 140px;
+    max-height: 280px;
+    overflow-y: auto;
+    background-color: var(--surface);
+    border: 1px solid var(--outline);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-8px);
+    transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+    z-index: 100;
+    padding: 4px;
+  }
+
+  :root[data-theme="dark"] .language-menu {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  }
+
+  .language-dropdown.open .language-menu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+  }
+
+  .language-option {
+    display: block;
+    width: 100%;
+    padding: 8px 12px;
+    font-family: var(--font-family);
+    font-size: 0.8rem;
+    text-align: left;
+    color: var(--text);
+    background: none;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.1s ease, color 0.1s ease;
+  }
+
+  .language-option:hover,
+  .language-option:focus {
+    background-color: var(--surface-tint);
+    outline: none;
+  }
+
+  .language-option[aria-selected="true"] {
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  .language-option[aria-selected="true"]::before {
+    content: "✓ ";
+  }
+
+  /* Scrollbar styling for dropdown */
+  .language-menu::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .language-menu::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .language-menu::-webkit-scrollbar-thumb {
+    background-color: var(--outline);
+    border-radius: 3px;
+  }
+
+  .language-menu::-webkit-scrollbar-thumb:hover {
+    background-color: var(--muted);
   }
 
   .save-btn {
@@ -469,8 +964,16 @@ import Layout from '../../layouts/Layout.astro';
       font-size: 0.9rem;
     }
 
-    .language-select {
-      max-width: 100px;
+    .language-trigger {
+      min-width: 80px;
+      padding: 5px 8px;
+      font-size: 0.75rem;
+    }
+
+    .language-menu {
+      min-width: 120px;
+      right: 0;
+      left: auto;
     }
 
     .btn-text {
