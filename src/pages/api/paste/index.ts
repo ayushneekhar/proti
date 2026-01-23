@@ -7,6 +7,7 @@ interface PasteData {
   createdAt: string;
   expiresAt: string;
   burnAfterReading?: boolean;
+  viewCount?: number; // Track views for burn-after-reading
   passwordHash?: string;
 }
 

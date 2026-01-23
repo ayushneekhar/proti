@@ -6,6 +6,7 @@ interface PasteData {
   createdAt: string;
   expiresAt?: string;
   burnAfterReading?: boolean;
+  viewCount?: number;
   passwordHash?: string;
 }
 
@@ -61,15 +62,35 @@ export const GET: APIRoute = async ({ params, locals }) => {
       );
     }
 
-    // If burn after reading, delete after sending
+    // Handle burn after reading with view count
+    // First view (creator) = viewCount 0 -> 1, don't burn
+    // Second view (recipient) = viewCount 1 -> burn
+    let willBurn = false;
     if (pasteData.burnAfterReading) {
-      await env.PASTE_STORE.delete(id);
+      const currentViewCount = pasteData.viewCount || 0;
+      
+      if (currentViewCount === 0) {
+        // First view (creator) - increment count, don't burn yet
+        pasteData.viewCount = 1;
+        // Calculate remaining TTL
+        const expiresAt = pasteData.expiresAt ? new Date(pasteData.expiresAt) : null;
+        const remainingTtl = expiresAt 
+          ? Math.max(60, Math.floor((expiresAt.getTime() - Date.now()) / 1000))
+          : 30 * 24 * 60 * 60;
+        await env.PASTE_STORE.put(id, JSON.stringify(pasteData), {
+          expirationTtl: remainingTtl,
+        });
+      } else {
+        // Second+ view (recipient) - delete after sending
+        willBurn = true;
+        await env.PASTE_STORE.delete(id);
+      }
     }
 
     // Return full paste data (without passwordHash)
-    const { passwordHash, ...safeData } = pasteData;
+    const { passwordHash, viewCount, ...safeData } = pasteData;
     return new Response(
-      JSON.stringify(safeData),
+      JSON.stringify({ ...safeData, willBurn }),
       { 
         status: 200, 
         headers: { 'Content-Type': 'application/json' } 
@@ -129,15 +150,32 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       );
     }
 
-    // If burn after reading, delete after sending
+    // Handle burn after reading with view count
+    let willBurn = false;
     if (pasteData.burnAfterReading) {
-      await env.PASTE_STORE.delete(id);
+      const currentViewCount = pasteData.viewCount || 0;
+      
+      if (currentViewCount === 0) {
+        // First view (creator) - increment count, don't burn yet
+        pasteData.viewCount = 1;
+        const expiresAt = pasteData.expiresAt ? new Date(pasteData.expiresAt) : null;
+        const remainingTtl = expiresAt 
+          ? Math.max(60, Math.floor((expiresAt.getTime() - Date.now()) / 1000))
+          : 30 * 24 * 60 * 60;
+        await env.PASTE_STORE.put(id, JSON.stringify(pasteData), {
+          expirationTtl: remainingTtl,
+        });
+      } else {
+        // Second+ view (recipient) - delete after sending
+        willBurn = true;
+        await env.PASTE_STORE.delete(id);
+      }
     }
 
-    // Return full paste data (without passwordHash)
-    const { passwordHash, ...safeData } = pasteData;
+    // Return full paste data (without passwordHash and viewCount)
+    const { passwordHash, viewCount, ...safeData } = pasteData;
     return new Response(
-      JSON.stringify(safeData),
+      JSON.stringify({ ...safeData, willBurn }),
       { 
         status: 200, 
         headers: { 'Content-Type': 'application/json' } 

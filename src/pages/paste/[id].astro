@@ -2,7 +2,6 @@
 import Layout from '../../layouts/Layout.astro';
 import { createHighlighter } from 'shiki';
 import { marked } from 'marked';
-import QRCode from 'qrcode';
 
 interface PasteData {
   content: string;
@@ -10,6 +9,7 @@ interface PasteData {
   createdAt: string;
   expiresAt?: string;
   burnAfterReading?: boolean;
+  viewCount?: number;
   passwordHash?: string;
 }
 
@@ -22,7 +22,6 @@ let highlightedLines: string[] = [];
 let renderedMarkdown: string = '';
 let requiresPassword = false;
 let wasBurned = false;
-let qrCodeDataUrl: string = '';
 
 try {
   const { env } = Astro.locals.runtime;
@@ -36,10 +35,27 @@ try {
       requiresPassword = true;
       // Don't process content - will be handled client-side
     } else {
-      // If burn after reading, delete now
+      // Handle burn after reading with view count
+      // First view (creator, viewCount=0) -> increment to 1, don't burn
+      // Second view (recipient, viewCount=1) -> burn
       if (paste.burnAfterReading) {
-        await env.PASTE_STORE.delete(id);
-        wasBurned = true;
+        const currentViewCount = paste.viewCount || 0;
+        
+        if (currentViewCount === 0) {
+          // First view (creator) - just increment count
+          paste.viewCount = 1;
+          const expiresAt = paste.expiresAt ? new Date(paste.expiresAt) : null;
+          const remainingTtl = expiresAt 
+            ? Math.max(60, Math.floor((expiresAt.getTime() - Date.now()) / 1000))
+            : 30 * 24 * 60 * 60;
+          await env.PASTE_STORE.put(id, JSON.stringify(paste), {
+            expirationTtl: remainingTtl,
+          });
+        } else {
+          // Second+ view (recipient) - burn it
+          await env.PASTE_STORE.delete(id);
+          wasBurned = true;
+        }
       }
       
       // If it's markdown, render it
@@ -97,21 +113,6 @@ try {
         // Fallback to plain text if highlighting fails
         highlightedLines = paste.content.split('\n').map(line => escapeHtml(line));
       }
-    }
-    
-    // Generate QR code
-    const shareUrl = `https://neekhar.dev/paste/${id}`;
-    try {
-      qrCodeDataUrl = await QRCode.toDataURL(shareUrl, {
-        width: 200,
-        margin: 2,
-        color: {
-          dark: '#000000',
-          light: '#ffffff',
-        },
-      });
-    } catch (e) {
-      // QR code generation failed, not critical
     }
   } else {
     error = 'Paste not found or has expired';
@@ -352,7 +353,7 @@ const ogDescription = paste
           </svg>
         </button>
         <h3>Scan to open</h3>
-        {qrCodeDataUrl && <img src={qrCodeDataUrl} alt="QR Code" class="qr-image" />}
+        <canvas id="qr-canvas" class="qr-canvas"></canvas>
         <p class="qr-url">{shareUrl}</p>
       </div>
     </div>
@@ -427,8 +428,41 @@ const ogDescription = paste
   });
 
   // QR Code modal
+  const qrCanvas = document.getElementById('qr-canvas') as HTMLCanvasElement;
+  let qrGenerated = false;
+  
+  async function generateQRCode() {
+    if (qrGenerated || !qrCanvas) return;
+    
+    const shareUrl = window.location.href;
+    
+    // Use QR Server API to generate QR code
+    const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(shareUrl)}`;
+    
+    // Create an image and draw it to canvas
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      qrCanvas.width = 200;
+      qrCanvas.height = 200;
+      const ctx = qrCanvas.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, 200, 200);
+        ctx.drawImage(img, 0, 0, 200, 200);
+        qrGenerated = true;
+      }
+    };
+    img.onerror = () => {
+      // Fallback: show URL prominently if QR fails
+      qrCanvas.style.display = 'none';
+    };
+    img.src = qrApiUrl;
+  }
+  
   qrBtn?.addEventListener('click', () => {
     qrModal?.classList.remove('hidden');
+    generateQRCode();
   });
 
   qrClose?.addEventListener('click', () => {
@@ -1207,10 +1241,11 @@ const ogDescription = paste
     color: var(--text);
   }
 
-  .qr-image {
+  .qr-canvas {
     width: 200px;
     height: 200px;
     border-radius: 8px;
+    background-color: #ffffff;
   }
 
   .qr-url {
