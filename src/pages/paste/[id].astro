@@ -176,7 +176,7 @@ const lineCount = highlightedLines.length || 1;
           ))}
         </div>
         <pre class="code-content"><code>{highlightedLines.map((line, i) => (
-          <Fragment key={i}><span class="code-line" set:html={line || ' '} />{i < highlightedLines.length - 1 ? '\n' : ''}</Fragment>
+          <span class="code-line" set:html={line || ' '} />
         ))}</code></pre>
       </div>
     )}
