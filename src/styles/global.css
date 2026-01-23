@@ -1,0 +1,110 @@
+:root {
+  --font-family: "Space Mono", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  --bg: #f1e9da;
+  --text: #1f2227;
+  --accent: #4f46e5;
+  --muted: #575d6b;
+  --surface: #fdf3dd;
+  --outline: rgba(31, 34, 39, 0.18);
+  --surface-tint: rgba(255, 244, 224, 0.72);
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+:root[data-theme="dark"] {
+  --bg: #17191c;
+  --text: #e7e6f2;
+  --accent: #facc15;
+  --muted: #9aa6c6;
+  --surface: #1f2227;
+  --outline: rgba(231, 230, 242, 0.28);
+  --surface-tint: rgba(23, 25, 28, 0.65);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-family);
+  background-color: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate {
+  opacity: 0;
+  transform: translateY(12px);
+  animation: fadeUp 0.6s ease var(--delay, 0s) forwards;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Theme toggle button */
+.theme-toggle {
+  border: 1px solid var(--outline);
+  background-color: var(--surface-tint);
+  color: var(--text);
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 18px;
+  font-family: var(--font-family);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+
+.theme-toggle:hover,
+.theme-toggle:focus {
+  border-color: var(--accent);
+  color: var(--accent);
+  background-color: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12);
+  outline: none;
+}
+
+.theme-toggle .icon {
+  width: 16px;
+  height: 16px;
+  display: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+:root[data-theme="light"] .theme-toggle .icon--sun {
+  display: block;
+}
+
+:root[data-theme="dark"] .theme-toggle .icon--moon {
+  display: block;
+}

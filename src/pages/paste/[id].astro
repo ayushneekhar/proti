@@ -1,0 +1,517 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { createHighlighter } from 'shiki';
+
+interface PasteData {
+  content: string;
+  language: string;
+  createdAt: string;
+}
+
+const { id } = Astro.params;
+
+// Fetch paste data from API
+let paste: PasteData | null = null;
+let error: string | null = null;
+let highlightedLines: string[] = [];
+
+try {
+  const { env } = Astro.locals.runtime;
+  const data = await env.PASTE_STORE.get(id);
+  
+  if (data) {
+    paste = JSON.parse(data);
+    
+    // Map language names to Shiki language identifiers
+    const languageMap: Record<string, string> = {
+      'plaintext': 'text',
+      'javascript': 'javascript',
+      'typescript': 'typescript',
+      'python': 'python',
+      'rust': 'rust',
+      'go': 'go',
+      'html': 'html',
+      'css': 'css',
+      'json': 'json',
+      'markdown': 'markdown',
+      'sql': 'sql',
+      'shell': 'bash',
+      'yaml': 'yaml',
+      'cpp': 'cpp',
+      'java': 'java',
+    };
+
+    const shikiLang = languageMap[paste.language] || 'text';
+    
+    try {
+      const highlighter = await createHighlighter({
+        themes: ['github-light', 'github-dark'],
+        langs: [shikiLang],
+      });
+
+      const tokens = highlighter.codeToTokensWithThemes(paste.content, {
+        lang: shikiLang,
+        themes: {
+          light: 'github-light',
+          dark: 'github-dark',
+        },
+      });
+
+      // Build highlighted lines
+      highlightedLines = tokens.map(lineTokens => {
+        return lineTokens.map(token => {
+          const lightColor = token.variants?.light || token.color || '';
+          const darkColor = token.variants?.dark || token.color || '';
+          return `<span style="--shiki-light:${lightColor};--shiki-dark:${darkColor}">${escapeHtml(token.content)}</span>`;
+        }).join('');
+      });
+    } catch (e) {
+      // Fallback to plain text if highlighting fails
+      highlightedLines = paste.content.split('\n').map(line => escapeHtml(line));
+    }
+  } else {
+    error = 'Paste not found or has expired';
+  }
+} catch (e) {
+  error = 'Failed to load paste';
+}
+
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Calculate days until expiration
+const getDaysRemaining = (createdAt: string) => {
+  const created = new Date(createdAt);
+  const expires = new Date(created.getTime() + 30 * 24 * 60 * 60 * 1000);
+  const now = new Date();
+  const remaining = Math.ceil((expires.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  return Math.max(0, remaining);
+};
+
+const daysRemaining = paste ? getDaysRemaining(paste.createdAt) : 0;
+const shareUrl = `https://neekhar.dev/paste/${id}`;
+const lineCount = highlightedLines.length || 1;
+---
+
+<Layout title={paste ? `Paste ${id} | Ayush Neekhar` : 'Paste Not Found'}>
+  <div class="paste-app">
+    <header class="toolbar">
+      <div class="toolbar-left">
+        <a href="/" class="brand">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+          <span>neekhar.dev</span>
+        </a>
+        <span class="separator">/</span>
+        <a href="/paste" class="nav-link">paste</a>
+        {paste && (
+          <>
+            <span class="separator">/</span>
+            <span class="paste-id">{id}</span>
+          </>
+        )}
+      </div>
+      <div class="toolbar-right">
+        {paste && (
+          <>
+            <span class="expiry-badge">{daysRemaining}d left</span>
+            <span class="language-badge">{paste.language}</span>
+          </>
+        )}
+        <button class="theme-toggle" type="button" aria-label="Toggle color theme">
+          <svg class="icon icon--sun" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"></circle>
+            <line x1="12" y1="2" x2="12" y2="4"></line>
+            <line x1="12" y1="20" x2="12" y2="22"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="2" y1="12" x2="4" y2="12"></line>
+            <line x1="20" y1="12" x2="22" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>
+          <svg class="icon icon--moon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 0111.21 3 7 7 0 1021 12.79z"></path>
+          </svg>
+        </button>
+        {paste && (
+          <>
+            <button id="copy-code-btn" class="toolbar-btn" data-content={paste.content} title="Copy code">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
+              </svg>
+            </button>
+            <button id="copy-url-btn" class="toolbar-btn" data-url={shareUrl} title="Copy URL">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"></path>
+                <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"></path>
+              </svg>
+            </button>
+            <a href="/paste" class="new-btn" title="New paste">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              <span class="btn-text">New</span>
+            </a>
+          </>
+        )}
+      </div>
+    </header>
+
+    {error ? (
+      <div class="error-container">
+        <h2>Paste Not Found</h2>
+        <p>{error}</p>
+        <a href="/paste" class="new-paste-btn">Create New Paste</a>
+      </div>
+    ) : paste && (
+      <div class="code-container">
+        <div class="line-numbers">
+          {Array.from({ length: lineCount }, (_, i) => (
+            <span>{i + 1}</span>
+          ))}
+        </div>
+        <pre class="code-content"><code>{highlightedLines.map((line, i) => (
+          <Fragment key={i}><span class="code-line" set:html={line || ' '} />{i < highlightedLines.length - 1 ? '\n' : ''}</Fragment>
+        ))}</code></pre>
+      </div>
+    )}
+  </div>
+</Layout>
+
+<script>
+  const copyCodeBtn = document.getElementById('copy-code-btn');
+  const copyUrlBtn = document.getElementById('copy-url-btn');
+
+  async function copyWithFeedback(btn: HTMLElement, text: string) {
+    await navigator.clipboard.writeText(text);
+    btn.classList.add('copied');
+    setTimeout(() => btn.classList.remove('copied'), 1500);
+  }
+
+  copyCodeBtn?.addEventListener('click', () => {
+    const content = copyCodeBtn.getAttribute('data-content');
+    if (content) copyWithFeedback(copyCodeBtn, content);
+  });
+
+  copyUrlBtn?.addEventListener('click', () => {
+    const url = copyUrlBtn.getAttribute('data-url');
+    if (url) copyWithFeedback(copyUrlBtn, url);
+  });
+</script>
+
+<style>
+  .paste-app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 16px;
+    height: 48px;
+    min-height: 48px;
+    background-color: var(--surface);
+    border-bottom: 1px solid var(--outline);
+    gap: 12px;
+  }
+
+  .toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+    transition: color 0.2s ease;
+    white-space: nowrap;
+  }
+
+  .brand:hover {
+    color: var(--accent);
+    text-decoration: none;
+  }
+
+  .brand svg {
+    width: 14px;
+    height: 14px;
+    stroke: currentColor;
+    stroke-width: 2;
+    fill: none;
+  }
+
+  .separator {
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+
+  .nav-link {
+    font-size: 0.85rem;
+    color: var(--muted);
+    text-decoration: none;
+    transition: color 0.2s ease;
+  }
+
+  .nav-link:hover {
+    color: var(--accent);
+    text-decoration: none;
+  }
+
+  .paste-id {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .language-badge {
+    font-size: 0.75rem;
+    padding: 3px 8px;
+    background-color: var(--accent);
+    color: var(--bg);
+    border-radius: 4px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .expiry-badge {
+    font-size: 0.75rem;
+    padding: 3px 8px;
+    background-color: var(--surface-tint);
+    color: var(--muted);
+    border: 1px solid var(--outline);
+    border-radius: 4px;
+  }
+
+  .toolbar-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    font-family: var(--font-family);
+    color: var(--text);
+    background-color: var(--surface-tint);
+    border: 1px solid var(--outline);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: border-color 0.2s ease, color 0.2s ease;
+  }
+
+  .toolbar-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .toolbar-btn.copied {
+    border-color: #22c55e;
+    color: #22c55e;
+  }
+
+  .toolbar-btn svg {
+    width: 14px;
+    height: 14px;
+    stroke: currentColor;
+    stroke-width: 2;
+    fill: none;
+  }
+
+  .new-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    font-family: var(--font-family);
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--bg);
+    background-color: var(--accent);
+    border: none;
+    border-radius: 6px;
+    text-decoration: none;
+    transition: opacity 0.2s ease;
+  }
+
+  .new-btn:hover {
+    opacity: 0.9;
+    text-decoration: none;
+  }
+
+  .new-btn svg {
+    width: 14px;
+    height: 14px;
+    stroke: currentColor;
+    stroke-width: 2;
+    fill: none;
+  }
+
+  .code-container {
+    flex: 1;
+    display: flex;
+    overflow: auto;
+    background-color: var(--surface-tint);
+  }
+
+  .line-numbers {
+    display: flex;
+    flex-direction: column;
+    padding: 16px 0;
+    min-width: 50px;
+    background-color: var(--surface);
+    border-right: 1px solid var(--outline);
+    user-select: none;
+    position: sticky;
+    left: 0;
+  }
+
+  .line-numbers span {
+    display: block;
+    padding: 0 12px;
+    font-family: var(--font-family);
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--muted);
+    text-align: right;
+    height: calc(0.9rem * 1.6);
+  }
+
+  .code-content {
+    flex: 1;
+    margin: 0;
+    padding: 16px;
+    font-family: var(--font-family);
+    font-size: 0.9rem;
+    line-height: 1.6;
+    background-color: transparent;
+    overflow: visible;
+  }
+
+  .code-content code {
+    font-family: var(--font-family);
+  }
+
+  .code-line {
+    display: block;
+    min-height: calc(0.9rem * 1.6);
+  }
+
+  /* Shiki theme switching */
+  .code-line :global(span) {
+    color: var(--shiki-light);
+  }
+
+  :root[data-theme="dark"] .code-line :global(span) {
+    color: var(--shiki-dark);
+  }
+
+  .error-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 48px 24px;
+  }
+
+  .error-container h2 {
+    margin: 0 0 12px;
+    font-size: 1.5rem;
+  }
+
+  .error-container p {
+    color: var(--muted);
+    margin: 0 0 24px;
+  }
+
+  .new-paste-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    font-family: var(--font-family);
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--bg);
+    background-color: var(--accent);
+    border: none;
+    border-radius: 10px;
+    text-decoration: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .new-paste-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    text-decoration: none;
+  }
+
+  /* Mobile adjustments */
+  @media (max-width: 640px) {
+    .toolbar {
+      padding: 0 12px;
+      height: 44px;
+      min-height: 44px;
+    }
+
+    .brand span {
+      display: none;
+    }
+
+    .separator {
+      display: none;
+    }
+
+    .nav-link {
+      display: none;
+    }
+
+    .expiry-badge {
+      display: none;
+    }
+
+    .btn-text {
+      display: none;
+    }
+
+    .new-btn {
+      padding: 6px 8px;
+    }
+
+    .line-numbers {
+      min-width: 40px;
+    }
+
+    .line-numbers span {
+      padding: 0 8px;
+      font-size: 0.8rem;
+    }
+
+    .code-content {
+      font-size: 0.85rem;
+      padding: 16px 12px;
+    }
+  }
+</style>

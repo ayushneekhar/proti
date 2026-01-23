@@ -1,0 +1,53 @@
+---
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <slot />
+    <script is:inline>
+      (function () {
+        const root = document.documentElement;
+        const THEME_KEY = "ayush-neekhar-theme";
+
+        const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+        const storedTheme = localStorage.getItem(THEME_KEY);
+        const initialTheme = storedTheme || (prefersDark ? "dark" : "light");
+
+        setTheme(initialTheme);
+
+        // Add event listener when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+          const toggle = document.querySelector(".theme-toggle");
+          if (toggle) {
+            toggle.addEventListener("click", () => {
+              const nextTheme = root.dataset.theme === "light" ? "dark" : "light";
+              setTheme(nextTheme);
+            });
+          }
+        });
+
+        function setTheme(theme) {
+          root.dataset.theme = theme;
+          localStorage.setItem(THEME_KEY, theme);
+        }
+      })();
+    </script>
+  </body>
+</html>
+
+<style is:global>
+  @import '../styles/global.css';
+</style>

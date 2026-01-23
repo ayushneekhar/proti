@@ -1,0 +1,484 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout title="Paste | Ayush Neekhar">
+  <div class="paste-app">
+    <header class="toolbar">
+      <div class="toolbar-left">
+        <a href="/" class="brand">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+          <span>neekhar.dev</span>
+        </a>
+        <span class="separator">/</span>
+        <span class="page-title">paste</span>
+      </div>
+      <div class="toolbar-right">
+        <select id="language-select" class="language-select">
+          <option value="javascript" selected>JavaScript</option>
+          <option value="typescript">TypeScript</option>
+          <option value="python">Python</option>
+          <option value="rust">Rust</option>
+          <option value="go">Go</option>
+          <option value="html">HTML</option>
+          <option value="css">CSS</option>
+          <option value="json">JSON</option>
+          <option value="markdown">Markdown</option>
+          <option value="sql">SQL</option>
+          <option value="shell">Shell</option>
+          <option value="yaml">YAML</option>
+          <option value="cpp">C++</option>
+          <option value="java">Java</option>
+          <option value="plaintext">Plain Text</option>
+        </select>
+        <button class="theme-toggle" type="button" aria-label="Toggle color theme">
+          <svg class="icon icon--sun" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"></circle>
+            <line x1="12" y1="2" x2="12" y2="4"></line>
+            <line x1="12" y1="20" x2="12" y2="22"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="2" y1="12" x2="4" y2="12"></line>
+            <line x1="20" y1="12" x2="22" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>
+          <svg class="icon icon--moon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 0111.21 3 7 7 0 1021 12.79z"></path>
+          </svg>
+        </button>
+        <button id="save-btn" class="save-btn">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"></path>
+            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+            <polyline points="7 3 7 8 15 8"></polyline>
+          </svg>
+          <span class="btn-text">Save</span>
+        </button>
+      </div>
+    </header>
+    
+    <div id="editor-container" class="editor-container"></div>
+  </div>
+</Layout>
+
+<script>
+  import { EditorView, keymap, lineNumbers, highlightActiveLineGutter, highlightSpecialChars, drawSelection, dropCursor, rectangularSelection, crosshairCursor, highlightActiveLine } from '@codemirror/view';
+  import { EditorState, Compartment } from '@codemirror/state';
+  import { indentOnInput, bracketMatching, foldGutter, foldKeymap, indentUnit, syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language';
+  import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
+  import { closeBrackets, closeBracketsKeymap, autocompletion, completionKeymap } from '@codemirror/autocomplete';
+  import { javascript } from '@codemirror/lang-javascript';
+  import { python } from '@codemirror/lang-python';
+  import { html } from '@codemirror/lang-html';
+  import { css } from '@codemirror/lang-css';
+  import { json } from '@codemirror/lang-json';
+  import { markdown } from '@codemirror/lang-markdown';
+  import { sql } from '@codemirror/lang-sql';
+  import { rust } from '@codemirror/lang-rust';
+  import { cpp } from '@codemirror/lang-cpp';
+  import { java } from '@codemirror/lang-java';
+  import { yaml } from '@codemirror/lang-yaml';
+  import { oneDark } from '@codemirror/theme-one-dark';
+
+  // Language compartment for dynamic language switching
+  const languageCompartment = new Compartment();
+  const themeCompartment = new Compartment();
+
+  // Get language extension based on selection
+  function getLanguageExtension(lang: string) {
+    switch (lang) {
+      case 'javascript': return javascript();
+      case 'typescript': return javascript({ typescript: true });
+      case 'python': return python();
+      case 'html': return html();
+      case 'css': return css();
+      case 'json': return json();
+      case 'markdown': return markdown();
+      case 'sql': return sql();
+      case 'rust': return rust();
+      case 'cpp': return cpp();
+      case 'java': return java();
+      case 'yaml': return yaml();
+      case 'go': return javascript(); // Go syntax is similar enough for basic highlighting
+      case 'shell': return []; // No specific shell support, fallback to plain
+      default: return [];
+    }
+  }
+
+  // Light theme
+  const lightTheme = EditorView.theme({
+    '&': {
+      backgroundColor: 'var(--surface-tint)',
+      color: 'var(--text)',
+    },
+    '.cm-content': {
+      caretColor: 'var(--accent)',
+      fontFamily: 'var(--font-family)',
+      fontSize: '0.9rem',
+      lineHeight: '1.6',
+    },
+    '.cm-cursor': {
+      borderLeftColor: 'var(--accent)',
+    },
+    '.cm-gutters': {
+      backgroundColor: 'var(--surface)',
+      color: 'var(--muted)',
+      borderRight: '1px solid var(--outline)',
+      fontFamily: 'var(--font-family)',
+      fontSize: '0.9rem',
+    },
+    '.cm-lineNumbers .cm-gutterElement': {
+      padding: '0 16px',
+      minWidth: '50px',
+      textAlign: 'center',
+    },
+    '.cm-activeLineGutter': {
+      backgroundColor: 'var(--surface-tint)',
+    },
+    '.cm-activeLine': {
+      backgroundColor: 'rgba(0, 0, 0, 0.04)',
+    },
+    '.cm-selectionBackground': {
+      backgroundColor: 'rgba(79, 70, 229, 0.2) !important',
+    },
+    '&.cm-focused .cm-selectionBackground': {
+      backgroundColor: 'rgba(79, 70, 229, 0.3) !important',
+    },
+    '.cm-matchingBracket': {
+      backgroundColor: 'rgba(79, 70, 229, 0.3)',
+      outline: '1px solid rgba(79, 70, 229, 0.5)',
+    },
+    '.cm-foldGutter': {
+      width: '16px',
+    },
+    '.cm-tooltip': {
+      backgroundColor: 'var(--surface)',
+      border: '1px solid var(--outline)',
+      borderRadius: '6px',
+    },
+    '.cm-tooltip-autocomplete': {
+      '& > ul > li': {
+        padding: '4px 8px',
+      },
+      '& > ul > li[aria-selected]': {
+        backgroundColor: 'var(--accent)',
+        color: 'var(--bg)',
+      },
+    },
+  }, { dark: false });
+
+  // Dark theme extension
+  const darkThemeExtension = [
+    oneDark,
+    EditorView.theme({
+      '&': {
+        backgroundColor: 'var(--surface-tint)',
+      },
+      '.cm-gutters': {
+        backgroundColor: 'var(--surface)',
+        color: 'var(--muted)',
+        borderRight: '1px solid var(--outline)',
+      },
+      '.cm-activeLineGutter': {
+        backgroundColor: 'var(--surface-tint)',
+      },
+      '.cm-activeLine': {
+        backgroundColor: 'rgba(255, 255, 255, 0.04)',
+      },
+    }, { dark: true }),
+  ];
+
+  // Check current theme
+  function isDarkMode() {
+    return document.documentElement.dataset.theme === 'dark';
+  }
+
+  // Create editor
+  const container = document.getElementById('editor-container')!;
+  const languageSelect = document.getElementById('language-select') as HTMLSelectElement;
+  const saveBtn = document.getElementById('save-btn') as HTMLButtonElement;
+
+  const editor = new EditorView({
+    state: EditorState.create({
+      doc: '',
+      extensions: [
+        lineNumbers(),
+        highlightActiveLineGutter(),
+        highlightSpecialChars(),
+        history(),
+        foldGutter(),
+        drawSelection(),
+        dropCursor(),
+        EditorState.allowMultipleSelections.of(true),
+        indentOnInput(),
+        syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+        bracketMatching(),
+        closeBrackets(),
+        autocompletion(),
+        rectangularSelection(),
+        crosshairCursor(),
+        highlightActiveLine(),
+        indentUnit.of('  '),
+        keymap.of([
+          ...closeBracketsKeymap,
+          ...defaultKeymap,
+          ...historyKeymap,
+          ...foldKeymap,
+          ...completionKeymap,
+          indentWithTab,
+        ]),
+        languageCompartment.of(getLanguageExtension(languageSelect.value)),
+        themeCompartment.of(isDarkMode() ? darkThemeExtension : lightTheme),
+        EditorView.lineWrapping,
+        EditorView.contentAttributes.of({ 'aria-label': 'Code editor' }),
+      ],
+    }),
+    parent: container,
+  });
+
+  // Focus editor
+  editor.focus();
+
+  // Language change handler
+  languageSelect.addEventListener('change', () => {
+    editor.dispatch({
+      effects: languageCompartment.reconfigure(getLanguageExtension(languageSelect.value)),
+    });
+  });
+
+  // Theme change observer
+  const themeObserver = new MutationObserver(() => {
+    editor.dispatch({
+      effects: themeCompartment.reconfigure(isDarkMode() ? darkThemeExtension : lightTheme),
+    });
+  });
+  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  // Save handler
+  saveBtn.addEventListener('click', async () => {
+    const content = editor.state.doc.toString().trim();
+    if (!content) {
+      alert('Please enter some content');
+      return;
+    }
+
+    saveBtn.disabled = true;
+    const btnText = saveBtn.querySelector('.btn-text');
+    if (btnText) btnText.textContent = 'Saving...';
+
+    try {
+      const response = await fetch('/api/paste', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content,
+          language: languageSelect.value,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save paste');
+      }
+
+      const data = await response.json();
+      window.location.href = `/paste/${data.id}`;
+    } catch (error) {
+      alert('Failed to save paste. Please try again.');
+      saveBtn.disabled = false;
+      if (btnText) btnText.textContent = 'Save';
+    }
+  });
+
+  // Keyboard shortcut: Ctrl/Cmd+S to save
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      e.preventDefault();
+      saveBtn.click();
+    }
+  });
+</script>
+
+<style>
+  .paste-app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 16px;
+    height: 48px;
+    min-height: 48px;
+    background-color: var(--surface);
+    border-bottom: 1px solid var(--outline);
+    gap: 12px;
+  }
+
+  .toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+    transition: color 0.2s ease;
+    white-space: nowrap;
+  }
+
+  .brand:hover {
+    color: var(--accent);
+    text-decoration: none;
+  }
+
+  .brand svg {
+    width: 14px;
+    height: 14px;
+    stroke: currentColor;
+    stroke-width: 2;
+    fill: none;
+  }
+
+  .separator {
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+
+  .page-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .language-select {
+    font-family: var(--font-family);
+    font-size: 0.8rem;
+    padding: 6px 28px 6px 10px;
+    border: 1px solid var(--outline);
+    border-radius: 6px;
+    background-color: var(--surface-tint);
+    color: var(--text);
+    cursor: pointer;
+    transition: border-color 0.2s ease;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23575d6b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 12px;
+  }
+
+  :root[data-theme="dark"] .language-select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239aa6c6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  }
+
+  .language-select:hover,
+  .language-select:focus {
+    border-color: var(--accent);
+    outline: none;
+  }
+
+  .save-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    font-family: var(--font-family);
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--bg);
+    background-color: var(--accent);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+  }
+
+  .save-btn:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+
+  .save-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .save-btn svg {
+    width: 14px;
+    height: 14px;
+    stroke: currentColor;
+    stroke-width: 2;
+    fill: none;
+  }
+
+  .editor-container {
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* CodeMirror full height */
+  .editor-container :global(.cm-editor) {
+    height: 100%;
+  }
+
+  .editor-container :global(.cm-scroller) {
+    overflow: auto;
+    position: relative;
+  }
+
+
+  /* Mobile adjustments */
+  @media (max-width: 640px) {
+    .toolbar {
+      padding: 0 12px;
+      height: 44px;
+      min-height: 44px;
+    }
+
+    .brand span {
+      display: none;
+    }
+
+    .separator {
+      display: none;
+    }
+
+    .page-title {
+      font-size: 0.9rem;
+    }
+
+    .language-select {
+      max-width: 100px;
+    }
+
+    .btn-text {
+      display: none;
+    }
+
+    .save-btn {
+      padding: 6px 8px;
+    }
+  }
+</style>
