@@ -739,7 +739,7 @@ const ogDescription = paste
     display: block;
   }
 
-  /* Styled Tooltips */
+  /* Styled Tooltips - positioned below buttons */
   .with-tooltip {
     position: relative;
   }
@@ -747,7 +747,7 @@ const ogDescription = paste
   .with-tooltip::after {
     content: attr(data-tooltip);
     position: absolute;
-    bottom: calc(100% + 8px);
+    top: calc(100% + 8px);
     left: 50%;
     transform: translateX(-50%);
     padding: 6px 10px;
@@ -767,11 +767,11 @@ const ogDescription = paste
   .with-tooltip::before {
     content: '';
     position: absolute;
-    bottom: calc(100% + 4px);
+    top: calc(100% + 4px);
     left: 50%;
     transform: translateX(-50%);
     border: 4px solid transparent;
-    border-top-color: var(--text);
+    border-bottom-color: var(--text);
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.15s ease, visibility 0.15s ease;
