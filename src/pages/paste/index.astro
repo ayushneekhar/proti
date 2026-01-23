@@ -52,6 +52,49 @@ import Layout from '../../layouts/Layout.astro';
           </div>
         </div>
         <input type="hidden" id="language-value" value="javascript" />
+        
+        <!-- Markdown Preview Toggle (hidden by default) -->
+        <button id="md-preview-btn" class="tool-btn hidden" type="button" title="Preview Markdown">
+          <svg class="icon-edit" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path>
+            <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+          </svg>
+          <svg class="icon-preview" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+        </button>
+        
+        <!-- JSON Tools (hidden by default) -->
+        <div id="json-tools" class="json-tools hidden">
+          <button id="json-format-btn" class="tool-btn" type="button" title="Format JSON">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <line x1="21" y1="10" x2="3" y2="10"></line>
+              <line x1="21" y1="6" x2="3" y2="6"></line>
+              <line x1="21" y1="14" x2="3" y2="14"></line>
+              <line x1="21" y1="18" x2="3" y2="18"></line>
+            </svg>
+          </button>
+          <button id="json-minify-btn" class="tool-btn" type="button" title="Minify JSON">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <polyline points="4 14 10 14 10 20"></polyline>
+              <polyline points="20 10 14 10 14 4"></polyline>
+              <line x1="14" y1="10" x2="21" y2="3"></line>
+              <line x1="3" y1="21" x2="10" y2="14"></line>
+            </svg>
+          </button>
+        </div>
+        
+        <!-- JSON Error Indicator (hidden by default) -->
+        <div id="json-error" class="json-error hidden">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <span id="json-error-text">Error</span>
+        </div>
+        
         <button class="theme-toggle" type="button" aria-label="Toggle color theme">
           <svg class="icon icon--sun" viewBox="0 0 24 24" aria-hidden="true">
             <circle cx="12" cy="12" r="4"></circle>
@@ -80,15 +123,20 @@ import Layout from '../../layouts/Layout.astro';
     </header>
     
     <div id="editor-container" class="editor-container"></div>
+    <div id="markdown-preview" class="markdown-preview hidden"></div>
+    
+    <!-- Toast notification for JSON tools -->
+    <div id="toast" class="toast hidden"></div>
   </div>
 </Layout>
 
 <script>
-  import { EditorView, keymap, lineNumbers, highlightActiveLineGutter, highlightSpecialChars, drawSelection, dropCursor, rectangularSelection, crosshairCursor, highlightActiveLine } from '@codemirror/view';
-  import { EditorState, Compartment } from '@codemirror/state';
+  import { EditorView, keymap, lineNumbers, highlightActiveLineGutter, highlightSpecialChars, drawSelection, dropCursor, rectangularSelection, crosshairCursor, highlightActiveLine, Decoration, type DecorationSet } from '@codemirror/view';
+  import { EditorState, Compartment, StateField, StateEffect } from '@codemirror/state';
   import { indentOnInput, bracketMatching, foldGutter, foldKeymap, indentUnit, syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language';
   import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
   import { closeBrackets, closeBracketsKeymap, autocompletion, completionKeymap, type CompletionContext, type Completion } from '@codemirror/autocomplete';
+  import { marked } from 'marked';
   import { javascript } from '@codemirror/lang-javascript';
   import { python } from '@codemirror/lang-python';
   import { html } from '@codemirror/lang-html';
@@ -546,6 +594,9 @@ import Layout from '../../layouts/Layout.astro';
       ],
     });
     
+    // Update language-specific UI
+    updateLanguageUI(value);
+    
     // Return focus to editor
     editor.focus();
   }
@@ -608,6 +659,266 @@ import Layout from '../../layouts/Layout.astro';
     }
   });
 
+  // ========================================
+  // Markdown Preview
+  // ========================================
+  const mdPreviewBtn = document.getElementById('md-preview-btn')!;
+  const markdownPreview = document.getElementById('markdown-preview')!;
+  const editorContainer = document.getElementById('editor-container')!;
+  let isPreviewMode = false;
+
+  // Configure marked for safe rendering
+  marked.setOptions({
+    breaks: true,
+    gfm: true,
+  });
+
+  function toggleMarkdownPreview() {
+    isPreviewMode = !isPreviewMode;
+    
+    if (isPreviewMode) {
+      // Render markdown
+      const content = editor.state.doc.toString();
+      markdownPreview.innerHTML = marked.parse(content) as string;
+      markdownPreview.classList.remove('hidden');
+      editorContainer.classList.add('hidden');
+      mdPreviewBtn.classList.add('active');
+      mdPreviewBtn.title = 'Edit Markdown';
+    } else {
+      // Back to edit mode
+      markdownPreview.classList.add('hidden');
+      editorContainer.classList.remove('hidden');
+      mdPreviewBtn.classList.remove('active');
+      mdPreviewBtn.title = 'Preview Markdown';
+      editor.focus();
+    }
+  }
+
+  mdPreviewBtn.addEventListener('click', toggleMarkdownPreview);
+
+  // ========================================
+  // JSON Tools
+  // ========================================
+  const jsonTools = document.getElementById('json-tools')!;
+  const jsonFormatBtn = document.getElementById('json-format-btn')!;
+  const jsonMinifyBtn = document.getElementById('json-minify-btn')!;
+  const jsonError = document.getElementById('json-error')!;
+  const jsonErrorText = document.getElementById('json-error-text')!;
+  const toast = document.getElementById('toast')!;
+
+  // Error line highlighting
+  const setErrorLine = StateEffect.define<number | null>();
+  
+  const errorLineField = StateField.define<DecorationSet>({
+    create() {
+      return Decoration.none;
+    },
+    update(decorations, tr) {
+      for (const effect of tr.effects) {
+        if (effect.is(setErrorLine)) {
+          if (effect.value === null) {
+            return Decoration.none;
+          }
+          const line = tr.state.doc.line(effect.value);
+          const deco = Decoration.line({ class: 'cm-error-line' }).range(line.from);
+          return Decoration.set([deco]);
+        }
+      }
+      return decorations;
+    },
+    provide: f => EditorView.decorations.from(f),
+  });
+
+  function showToast(message: string, type: 'success' | 'error' = 'success') {
+    toast.textContent = message;
+    toast.className = `toast ${type}`;
+    setTimeout(() => toast.classList.add('hidden'), 2500);
+  }
+
+  function clearJsonError() {
+    jsonError.classList.add('hidden');
+    editor.dispatch({ effects: setErrorLine.of(null) });
+  }
+
+  function showJsonError(message: string, line?: number) {
+    jsonErrorText.textContent = message;
+    jsonError.classList.remove('hidden');
+    
+    if (line !== undefined && line > 0) {
+      const totalLines = editor.state.doc.lines;
+      const safeLine = Math.min(line, totalLines);
+      editor.dispatch({ effects: setErrorLine.of(safeLine) });
+      
+      // Scroll to error line
+      const lineInfo = editor.state.doc.line(safeLine);
+      editor.dispatch({
+        selection: { anchor: lineInfo.from },
+        scrollIntoView: true,
+      });
+    }
+  }
+
+  function parseJsonError(error: Error): { message: string; line?: number } {
+    const match = error.message.match(/at position (\d+)/);
+    if (match) {
+      const position = parseInt(match[1], 10);
+      const content = editor.state.doc.toString();
+      const beforeError = content.substring(0, position);
+      const line = (beforeError.match(/\n/g) || []).length + 1;
+      return { message: `Invalid JSON at line ${line}`, line };
+    }
+    return { message: 'Invalid JSON' };
+  }
+
+  function validateJson(content: string): { valid: boolean; parsed?: any; error?: { message: string; line?: number } } {
+    try {
+      const parsed = JSON.parse(content);
+      return { valid: true, parsed };
+    } catch (e) {
+      return { valid: false, error: parseJsonError(e as Error) };
+    }
+  }
+
+  function tryParseJsObject(content: string): { success: boolean; json?: string } {
+    // Try to convert JS object literal to JSON
+    // This handles cases like { foo: "bar" } -> { "foo": "bar" }
+    try {
+      // Use Function constructor to safely evaluate (safer than eval)
+      // Wrap in parentheses to handle object literals
+      const fn = new Function(`return (${content})`);
+      const obj = fn();
+      if (typeof obj === 'object' && obj !== null) {
+        return { success: true, json: JSON.stringify(obj, null, 2) };
+      }
+    } catch {
+      // Silently fail - it's not a valid JS object either
+    }
+    return { success: false };
+  }
+
+  function formatJson() {
+    const content = editor.state.doc.toString().trim();
+    if (!content) return;
+
+    clearJsonError();
+    const result = validateJson(content);
+    
+    if (result.valid) {
+      const formatted = JSON.stringify(result.parsed, null, 2);
+      if (formatted !== content) {
+        editor.dispatch({
+          changes: { from: 0, to: editor.state.doc.length, insert: formatted },
+        });
+        showToast('JSON formatted');
+      }
+    } else {
+      // Try to parse as JS object
+      const jsResult = tryParseJsObject(content);
+      if (jsResult.success) {
+        editor.dispatch({
+          changes: { from: 0, to: editor.state.doc.length, insert: jsResult.json! },
+        });
+        showToast('Converted JS object to JSON');
+      } else {
+        showJsonError(result.error!.message, result.error!.line);
+      }
+    }
+  }
+
+  function minifyJson() {
+    const content = editor.state.doc.toString().trim();
+    if (!content) return;
+
+    clearJsonError();
+    const result = validateJson(content);
+    
+    if (result.valid) {
+      const minified = JSON.stringify(result.parsed);
+      if (minified !== content) {
+        editor.dispatch({
+          changes: { from: 0, to: editor.state.doc.length, insert: minified },
+        });
+        showToast('JSON minified');
+      }
+    } else {
+      showJsonError(result.error!.message, result.error!.line);
+    }
+  }
+
+  jsonFormatBtn.addEventListener('click', formatJson);
+  jsonMinifyBtn.addEventListener('click', minifyJson);
+
+  // Validate JSON on content change (debounced)
+  let jsonValidationTimeout: ReturnType<typeof setTimeout>;
+  function scheduleJsonValidation() {
+    clearTimeout(jsonValidationTimeout);
+    jsonValidationTimeout = setTimeout(() => {
+      if (getSelectedLanguage() !== 'json') return;
+      
+      const content = editor.state.doc.toString().trim();
+      if (!content) {
+        clearJsonError();
+        return;
+      }
+      
+      const result = validateJson(content);
+      if (result.valid) {
+        clearJsonError();
+      } else {
+        // Check if it might be a JS object
+        const jsResult = tryParseJsObject(content);
+        if (jsResult.success) {
+          // Don't show error, but could show a hint
+          jsonErrorText.textContent = 'JS object detected - click Format to convert';
+          jsonError.classList.remove('hidden');
+          editor.dispatch({ effects: setErrorLine.of(null) });
+        } else {
+          showJsonError(result.error!.message, result.error!.line);
+        }
+      }
+    }, 500);
+  }
+
+  // Auto-format minified JSON on paste
+  function handleJsonPaste(content: string): string | null {
+    // Check if it looks like minified JSON (no newlines, long line)
+    if (!content.includes('\n') && content.length > 50) {
+      const result = validateJson(content);
+      if (result.valid) {
+        return JSON.stringify(result.parsed, null, 2);
+      }
+    }
+    return null;
+  }
+
+  // ========================================
+  // Language-specific UI updates
+  // ========================================
+  function updateLanguageUI(lang: string) {
+    // Markdown preview button
+    if (lang === 'markdown') {
+      mdPreviewBtn.classList.remove('hidden');
+    } else {
+      mdPreviewBtn.classList.add('hidden');
+      // Exit preview mode if switching away from markdown
+      if (isPreviewMode) {
+        isPreviewMode = false;
+        markdownPreview.classList.add('hidden');
+        editorContainer.classList.remove('hidden');
+        mdPreviewBtn.classList.remove('active');
+      }
+    }
+    
+    // JSON tools
+    if (lang === 'json') {
+      jsonTools.classList.remove('hidden');
+      scheduleJsonValidation();
+    } else {
+      jsonTools.classList.add('hidden');
+      clearJsonError();
+    }
+  }
+
   const editor = new EditorView({
     state: EditorState.create({
       doc: '',
@@ -641,6 +952,36 @@ import Layout from '../../layouts/Layout.astro';
         themeCompartment.of(isDarkMode() ? darkThemeExtension : lightTheme),
         EditorView.lineWrapping,
         EditorView.contentAttributes.of({ 'aria-label': 'Code editor' }),
+        errorLineField,
+        // JSON validation on change
+        EditorView.updateListener.of((update) => {
+          if (update.docChanged && getSelectedLanguage() === 'json') {
+            scheduleJsonValidation();
+          }
+        }),
+        // Auto-format minified JSON on paste
+        EditorView.domEventHandlers({
+          paste(event, view) {
+            if (getSelectedLanguage() === 'json') {
+              const clipboardData = event.clipboardData;
+              if (clipboardData) {
+                const text = clipboardData.getData('text/plain');
+                const formatted = handleJsonPaste(text);
+                if (formatted) {
+                  event.preventDefault();
+                  const { from, to } = view.state.selection.main;
+                  view.dispatch({
+                    changes: { from, to, insert: formatted },
+                    selection: { anchor: from + formatted.length },
+                  });
+                  showToast('JSON auto-formatted');
+                  return true;
+                }
+              }
+            }
+            return false;
+          },
+        }),
       ],
     }),
     parent: container,
@@ -943,6 +1284,260 @@ import Layout from '../../layouts/Layout.astro';
     position: relative;
   }
 
+  /* Tool buttons (Markdown preview, JSON tools) */
+  .tool-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    font-family: var(--font-family);
+    color: var(--text);
+    background-color: var(--surface-tint);
+    border: 1px solid var(--outline);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+  }
+
+  .tool-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .tool-btn.active {
+    background-color: var(--accent);
+    border-color: var(--accent);
+    color: var(--bg);
+  }
+
+  .tool-btn svg {
+    width: 14px;
+    height: 14px;
+    stroke: currentColor;
+    stroke-width: 2;
+    fill: none;
+  }
+
+  .tool-btn.hidden {
+    display: none;
+  }
+
+  /* Markdown preview button icons */
+  #md-preview-btn .icon-preview {
+    display: block;
+  }
+  #md-preview-btn .icon-edit {
+    display: none;
+  }
+  #md-preview-btn.active .icon-preview {
+    display: none;
+  }
+  #md-preview-btn.active .icon-edit {
+    display: block;
+  }
+
+  /* JSON Tools */
+  .json-tools {
+    display: flex;
+    gap: 4px;
+  }
+
+  .json-tools.hidden {
+    display: none;
+  }
+
+  /* JSON Error indicator */
+  .json-error {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background-color: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 6px;
+    color: #ef4444;
+    font-size: 0.75rem;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .json-error.hidden {
+    display: none;
+  }
+
+  .json-error svg {
+    width: 14px;
+    height: 14px;
+    stroke: currentColor;
+    stroke-width: 2;
+    fill: none;
+    flex-shrink: 0;
+  }
+
+  /* Error line highlighting in editor */
+  .editor-container :global(.cm-error-line) {
+    background-color: rgba(239, 68, 68, 0.15) !important;
+    border-left: 3px solid #ef4444;
+  }
+
+  /* Markdown Preview */
+  .markdown-preview {
+    flex: 1;
+    overflow: auto;
+    padding: 32px;
+    background-color: var(--surface-tint);
+  }
+
+  .markdown-preview.hidden {
+    display: none;
+  }
+
+  /* Markdown content styling */
+  .markdown-preview :global(h1),
+  .markdown-preview :global(h2),
+  .markdown-preview :global(h3),
+  .markdown-preview :global(h4),
+  .markdown-preview :global(h5),
+  .markdown-preview :global(h6) {
+    margin: 1.5em 0 0.5em;
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--text);
+  }
+
+  .markdown-preview :global(h1) { font-size: 2rem; }
+  .markdown-preview :global(h2) { font-size: 1.5rem; }
+  .markdown-preview :global(h3) { font-size: 1.25rem; }
+  .markdown-preview :global(h4) { font-size: 1.1rem; }
+
+  .markdown-preview :global(p) {
+    margin: 1em 0;
+    line-height: 1.7;
+    color: var(--text);
+  }
+
+  .markdown-preview :global(a) {
+    color: var(--accent);
+    text-decoration: none;
+  }
+
+  .markdown-preview :global(a:hover) {
+    text-decoration: underline;
+  }
+
+  .markdown-preview :global(code) {
+    font-family: var(--font-family);
+    background-color: var(--surface);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+
+  .markdown-preview :global(pre) {
+    background-color: var(--surface);
+    padding: 16px;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 1em 0;
+  }
+
+  .markdown-preview :global(pre code) {
+    background: none;
+    padding: 0;
+  }
+
+  .markdown-preview :global(blockquote) {
+    margin: 1em 0;
+    padding: 0.5em 1em;
+    border-left: 4px solid var(--accent);
+    background-color: var(--surface);
+    color: var(--muted);
+  }
+
+  .markdown-preview :global(ul),
+  .markdown-preview :global(ol) {
+    margin: 1em 0;
+    padding-left: 2em;
+    color: var(--text);
+  }
+
+  .markdown-preview :global(li) {
+    margin: 0.5em 0;
+    line-height: 1.6;
+  }
+
+  .markdown-preview :global(hr) {
+    border: none;
+    border-top: 1px solid var(--outline);
+    margin: 2em 0;
+  }
+
+  .markdown-preview :global(table) {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1em 0;
+  }
+
+  .markdown-preview :global(th),
+  .markdown-preview :global(td) {
+    border: 1px solid var(--outline);
+    padding: 8px 12px;
+    text-align: left;
+  }
+
+  .markdown-preview :global(th) {
+    background-color: var(--surface);
+    font-weight: 700;
+  }
+
+  .markdown-preview :global(img) {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+  }
+
+  /* Toast notification */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    z-index: 1000;
+    animation: toast-in 0.3s ease;
+  }
+
+  .toast.success {
+    background-color: #22c55e;
+    color: white;
+  }
+
+  .toast.error {
+    background-color: #ef4444;
+    color: white;
+  }
+
+  .toast.hidden {
+    display: none;
+  }
+
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateX(-50%) translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  }
 
   /* Mobile adjustments */
   @media (max-width: 640px) {
@@ -982,6 +1577,31 @@ import Layout from '../../layouts/Layout.astro';
 
     .save-btn {
       padding: 6px 8px;
+    }
+
+    .tool-btn {
+      width: 28px;
+      height: 28px;
+    }
+
+    .tool-btn svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    .json-error {
+      max-width: 120px;
+      font-size: 0.7rem;
+      padding: 3px 8px;
+    }
+
+    .json-error svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    .markdown-preview {
+      padding: 20px 16px;
     }
   }
 </style>

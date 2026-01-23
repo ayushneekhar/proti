@@ -29,6 +29,7 @@
     "@codemirror/view": "^6.39.11",
     "astro": "^5.0.0",
     "codemirror": "^6.0.2",
+    "marked": "^17.0.1",
     "nanoid": "^5.0.9",
     "shiki": "^1.24.0"
   },
