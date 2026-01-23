@@ -31,10 +31,12 @@
     "codemirror": "^6.0.2",
     "marked": "^17.0.1",
     "nanoid": "^5.0.9",
+    "qrcode": "^1.5.4",
     "shiki": "^1.24.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@types/qrcode": "^1",
     "wrangler": "^3.99.0"
   }
 }

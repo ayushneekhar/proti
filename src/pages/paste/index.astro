@@ -111,6 +111,15 @@ import Layout from '../../layouts/Layout.astro';
             <path d="M21 12.79A9 9 0 0111.21 3 7 7 0 1021 12.79z"></path>
           </svg>
         </button>
+        <!-- Options button that opens panel -->
+        <button id="options-btn" class="tool-btn with-tooltip" type="button" data-tooltip="Paste options">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="1"></circle>
+            <circle cx="19" cy="12" r="1"></circle>
+            <circle cx="5" cy="12" r="1"></circle>
+          </svg>
+        </button>
+        
         <button id="save-btn" class="save-btn">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"></path>
@@ -122,10 +131,57 @@ import Layout from '../../layouts/Layout.astro';
       </div>
     </header>
     
+    <!-- Options Panel (hidden by default) -->
+    <div id="options-panel" class="options-panel hidden">
+      <div class="option-group">
+        <label class="option-label">Expires in</label>
+        <div class="expiration-options">
+          <button type="button" class="expiration-btn" data-value="1h">1 hour</button>
+          <button type="button" class="expiration-btn" data-value="1d">1 day</button>
+          <button type="button" class="expiration-btn" data-value="7d">7 days</button>
+          <button type="button" class="expiration-btn active" data-value="30d">30 days</button>
+        </div>
+      </div>
+      <div class="option-group">
+        <label class="option-label">
+          <input type="checkbox" id="burn-toggle" />
+          <span class="checkbox-custom"></span>
+          Burn after reading
+        </label>
+        <span class="option-hint">Paste will be deleted after first view</span>
+      </div>
+      <div class="option-group">
+        <label class="option-label">
+          <input type="checkbox" id="password-toggle" />
+          <span class="checkbox-custom"></span>
+          Password protect
+        </label>
+        <input 
+          type="password" 
+          id="password-input" 
+          class="password-input hidden" 
+          placeholder="Enter password"
+          autocomplete="new-password"
+        />
+      </div>
+    </div>
+    
     <div id="editor-container" class="editor-container"></div>
     <div id="markdown-preview" class="markdown-preview hidden"></div>
     
-    <!-- Toast notification for JSON tools -->
+    <!-- Drag & Drop Overlay -->
+    <div id="drop-overlay" class="drop-overlay hidden">
+      <div class="drop-content">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"></path>
+          <polyline points="17 8 12 3 7 8"></polyline>
+          <line x1="12" y1="3" x2="12" y2="15"></line>
+        </svg>
+        <span>Drop file to paste</span>
+      </div>
+    </div>
+    
+    <!-- Toast notification -->
     <div id="toast" class="toast hidden"></div>
   </div>
 </Layout>
@@ -990,6 +1046,39 @@ import Layout from '../../layouts/Layout.astro';
   // Focus editor
   editor.focus();
 
+  // ========================================
+  // Fork from existing paste
+  // ========================================
+  const urlParams = new URLSearchParams(window.location.search);
+  const forkId = urlParams.get('fork');
+  
+  if (forkId) {
+    // Load content from existing paste
+    fetch(`/api/paste/${forkId}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.content) {
+          editor.dispatch({
+            changes: { from: 0, to: editor.state.doc.length, insert: data.content },
+          });
+          
+          // Set language if available
+          if (data.language) {
+            const label = languageMenu.querySelector(`[data-value="${data.language}"]`)?.textContent || data.language;
+            selectLanguage(data.language, label);
+          }
+          
+          showToast('Content loaded - edit and save as new paste');
+          
+          // Clear the fork parameter from URL
+          window.history.replaceState({}, '', '/paste');
+        }
+      })
+      .catch(() => {
+        showToast('Failed to load paste for forking', 'error');
+      });
+  }
+
   // Theme change observer
   const themeObserver = new MutationObserver(() => {
     editor.dispatch({
@@ -998,11 +1087,171 @@ import Layout from '../../layouts/Layout.astro';
   });
   themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
+  // ========================================
+  // Options Panel
+  // ========================================
+  const optionsBtn = document.getElementById('options-btn')!;
+  const optionsPanel = document.getElementById('options-panel')!;
+  const burnToggle = document.getElementById('burn-toggle') as HTMLInputElement;
+  const passwordToggle = document.getElementById('password-toggle') as HTMLInputElement;
+  const passwordInput = document.getElementById('password-input') as HTMLInputElement;
+  const expirationBtns = document.querySelectorAll('.expiration-btn');
+  
+  let selectedExpiration = '30d';
+  
+  // Toggle options panel
+  optionsBtn.addEventListener('click', () => {
+    optionsPanel.classList.toggle('hidden');
+    optionsBtn.classList.toggle('active');
+  });
+  
+  // Close options panel when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!optionsPanel.contains(e.target as Node) && !optionsBtn.contains(e.target as Node)) {
+      optionsPanel.classList.add('hidden');
+      optionsBtn.classList.remove('active');
+    }
+  });
+  
+  // Expiration selection
+  expirationBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      expirationBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedExpiration = (btn as HTMLElement).dataset.value || '30d';
+    });
+  });
+  
+  // Password toggle
+  passwordToggle.addEventListener('change', () => {
+    if (passwordToggle.checked) {
+      passwordInput.classList.remove('hidden');
+      passwordInput.focus();
+    } else {
+      passwordInput.classList.add('hidden');
+      passwordInput.value = '';
+    }
+  });
+
+  // ========================================
+  // Drag & Drop File Upload
+  // ========================================
+  const dropOverlay = document.getElementById('drop-overlay')!;
+  const pasteApp = document.querySelector('.paste-app')!;
+  let dragCounter = 0;
+  
+  pasteApp.addEventListener('dragenter', (e) => {
+    e.preventDefault();
+    dragCounter++;
+    if (dragCounter === 1) {
+      dropOverlay.classList.remove('hidden');
+    }
+  });
+  
+  pasteApp.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    dragCounter--;
+    if (dragCounter === 0) {
+      dropOverlay.classList.add('hidden');
+    }
+  });
+  
+  pasteApp.addEventListener('dragover', (e) => {
+    e.preventDefault();
+  });
+  
+  pasteApp.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    dragCounter = 0;
+    dropOverlay.classList.add('hidden');
+    
+    const files = e.dataTransfer?.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      
+      // Check file size (max 500KB)
+      if (file.size > 500000) {
+        showToast('File too large (max 500KB)', 'error');
+        return;
+      }
+      
+      // Read file content
+      const text = await file.type.startsWith('text/') || isTextFile(file.name)
+        ? await file.text()
+        : null;
+      
+      if (text !== null) {
+        editor.dispatch({
+          changes: { from: 0, to: editor.state.doc.length, insert: text },
+        });
+        
+        // Try to detect language from file extension
+        const ext = file.name.split('.').pop()?.toLowerCase();
+        const langMap: Record<string, string> = {
+          'js': 'javascript',
+          'mjs': 'javascript',
+          'jsx': 'javascript',
+          'ts': 'typescript',
+          'tsx': 'typescript',
+          'py': 'python',
+          'rs': 'rust',
+          'go': 'go',
+          'html': 'html',
+          'htm': 'html',
+          'css': 'css',
+          'json': 'json',
+          'md': 'markdown',
+          'markdown': 'markdown',
+          'sql': 'sql',
+          'sh': 'shell',
+          'bash': 'shell',
+          'zsh': 'shell',
+          'yaml': 'yaml',
+          'yml': 'yaml',
+          'cpp': 'cpp',
+          'cc': 'cpp',
+          'c': 'cpp',
+          'h': 'cpp',
+          'hpp': 'cpp',
+          'java': 'java',
+          'txt': 'plaintext',
+        };
+        
+        if (ext && langMap[ext]) {
+          const lang = langMap[ext];
+          const label = languageMenu.querySelector(`[data-value="${lang}"]`)?.textContent || lang;
+          selectLanguage(lang, label);
+        }
+        
+        showToast(`Loaded ${file.name}`);
+        editor.focus();
+      } else {
+        showToast('Cannot read file type', 'error');
+      }
+    }
+  });
+  
+  function isTextFile(filename: string): boolean {
+    const textExtensions = ['js', 'mjs', 'jsx', 'ts', 'tsx', 'py', 'rs', 'go', 'html', 'htm', 
+      'css', 'json', 'md', 'markdown', 'sql', 'sh', 'bash', 'zsh', 'yaml', 'yml', 
+      'cpp', 'cc', 'c', 'h', 'hpp', 'java', 'txt', 'xml', 'svg', 'toml', 'ini', 'cfg',
+      'env', 'gitignore', 'dockerignore', 'editorconfig', 'astro', 'vue', 'svelte'];
+    const ext = filename.split('.').pop()?.toLowerCase() || '';
+    return textExtensions.includes(ext);
+  }
+
   // Save handler
   saveBtn.addEventListener('click', async () => {
     const content = editor.state.doc.toString().trim();
     if (!content) {
-      alert('Please enter some content');
+      showToast('Please enter some content', 'error');
+      return;
+    }
+
+    // Validate password if enabled
+    if (passwordToggle.checked && !passwordInput.value.trim()) {
+      showToast('Please enter a password', 'error');
+      passwordInput.focus();
       return;
     }
 
@@ -1019,6 +1268,9 @@ import Layout from '../../layouts/Layout.astro';
         body: JSON.stringify({
           content,
           language: getSelectedLanguage(),
+          expiration: selectedExpiration,
+          burnAfterReading: burnToggle.checked,
+          password: passwordToggle.checked ? passwordInput.value : null,
         }),
       });
 
@@ -1029,7 +1281,7 @@ import Layout from '../../layouts/Layout.astro';
       const data = await response.json();
       window.location.href = `/paste/${data.id}`;
     } catch (error) {
-      alert('Failed to save paste. Please try again.');
+      showToast('Failed to save paste', 'error');
       saveBtn.disabled = false;
       if (btnText) btnText.textContent = 'Save';
     }
@@ -1269,9 +1521,161 @@ import Layout from '../../layouts/Layout.astro';
     fill: none;
   }
 
+  /* Options Panel */
+  .options-panel {
+    display: flex;
+    gap: 24px;
+    padding: 12px 16px;
+    background-color: var(--surface);
+    border-bottom: 1px solid var(--outline);
+    flex-wrap: wrap;
+  }
+
+  .options-panel.hidden {
+    display: none;
+  }
+
+  .option-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .option-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: var(--text);
+    cursor: pointer;
+  }
+
+  .option-hint {
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+
+  /* Expiration buttons */
+  .expiration-options {
+    display: flex;
+    gap: 4px;
+  }
+
+  .expiration-btn {
+    padding: 4px 10px;
+    font-family: var(--font-family);
+    font-size: 0.75rem;
+    color: var(--muted);
+    background: none;
+    border: 1px solid var(--outline);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .expiration-btn:hover {
+    color: var(--text);
+    border-color: var(--text);
+  }
+
+  .expiration-btn.active {
+    color: var(--bg);
+    background-color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  /* Custom checkbox */
+  .option-label input[type="checkbox"] {
+    display: none;
+  }
+
+  .checkbox-custom {
+    width: 16px;
+    height: 16px;
+    border: 1px solid var(--outline);
+    border-radius: 4px;
+    background-color: var(--surface-tint);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+  }
+
+  .option-label input[type="checkbox"]:checked + .checkbox-custom {
+    background-color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .option-label input[type="checkbox"]:checked + .checkbox-custom::after {
+    content: '✓';
+    color: var(--bg);
+    font-size: 10px;
+    font-weight: bold;
+  }
+
+  /* Password input */
+  .password-input {
+    padding: 6px 10px;
+    font-family: var(--font-family);
+    font-size: 0.8rem;
+    color: var(--text);
+    background-color: var(--surface-tint);
+    border: 1px solid var(--outline);
+    border-radius: 6px;
+    width: 160px;
+    transition: border-color 0.2s ease;
+  }
+
+  .password-input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .password-input.hidden {
+    display: none;
+  }
+
+  /* Drag & Drop Overlay */
+  .drop-overlay {
+    position: absolute;
+    inset: 0;
+    background-color: rgba(var(--accent-rgb, 79, 70, 229), 0.1);
+    backdrop-filter: blur(2px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    border: 3px dashed var(--accent);
+    margin: 8px;
+    border-radius: 12px;
+  }
+
+  .drop-overlay.hidden {
+    display: none;
+  }
+
+  .drop-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    color: var(--accent);
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+
+  .drop-content svg {
+    width: 48px;
+    height: 48px;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    fill: none;
+  }
+
   .editor-container {
     flex: 1;
     overflow: hidden;
+    position: relative;
   }
 
   /* CodeMirror full height */
