@@ -1,14 +1,15 @@
 name = "proti"
 compatibility_date = "2024-12-01"
+pages_build_output_dir = "dist"
 
 # Paste storage - 30 day TTL
 [[kv_namespaces]]
 binding = "PASTE_STORE"
-id = "YOUR_KV_NAMESPACE_ID"
-preview_id = "YOUR_PREVIEW_KV_NAMESPACE_ID"
+id = "ff55b4c9e86b4cb39a72025f2ba0f026"
+preview_id = "e8621471262d43bc86839ebc820f6f3f"
 
 # Session storage (required by Astro Cloudflare adapter)
 [[kv_namespaces]]
 binding = "SESSION"
-id = "YOUR_SESSION_KV_NAMESPACE_ID"
-preview_id = "YOUR_PREVIEW_SESSION_KV_NAMESPACE_ID"
+id = "351b286c9cf94ee6a635c28eb1005078"
+preview_id = "eda36ebc4ef94022bfc0ea4a9911ea8c"
