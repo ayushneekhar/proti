@@ -5,12 +5,12 @@ import Layout from '../../layouts/Layout.astro';
 <Layout 
   title="Paste | Proti"
   description="Create and share code snippets with syntax highlighting. Supports JavaScript, TypeScript, Python, and more."
-  ogUrl="https://neekhar.dev/paste"
+  ogUrl="https://paste.neekhar.dev"
 >
   <div class="paste-app">
     <header class="toolbar">
       <div class="toolbar-left">
-        <a href="/" class="brand">
+        <a href="https://neekhar.dev" class="brand">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <polyline points="15 18 9 12 15 6"></polyline>
           </svg>
@@ -1155,7 +1155,7 @@ import Layout from '../../layouts/Layout.astro';
           showToast('Content loaded - edit and save as new paste');
           
           // Clear the fork parameter from URL
-          window.history.replaceState({}, '', '/paste');
+          window.history.replaceState({}, '', '/');
         }
       })
       .catch(() => {
@@ -1362,7 +1362,7 @@ import Layout from '../../layouts/Layout.astro';
       }
 
       const data = await response.json();
-      window.location.href = `/paste/${data.id}`;
+      window.location.href = data.url || `/${data.id}`;
     } catch (error) {
       showToast('Failed to save paste', 'error');
       saveBtn.disabled = false;

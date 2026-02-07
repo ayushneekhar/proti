@@ -19,6 +19,8 @@ const EXPIRATION_OPTIONS: Record<string, number> = {
   '30d': 30 * 24 * 60 * 60,
 };
 
+const PUBLIC_PASTE_ORIGIN = 'https://paste.neekhar.dev';
+
 // Simple hash function for password (for demo - in production use bcrypt or similar)
 async function hashPassword(password: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -86,7 +88,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return new Response(
       JSON.stringify({ 
         id, 
-        url: `/paste/${id}`,
+        url: `${PUBLIC_PASTE_ORIGIN}/${id}`,
         expiresIn: expirationLabels[expirationKey] || '30 days',
         burnAfterReading: pasteData.burnAfterReading,
         hasPassword: !!pasteData.passwordHash,

@@ -146,7 +146,7 @@ const getTimeRemaining = (expiresAt?: string, createdAt?: string) => {
 };
 
 const timeRemaining = paste ? getTimeRemaining(paste.expiresAt, paste.createdAt) : '';
-const shareUrl = `https://neekhar.dev/paste/${id}`;
+const shareUrl = `https://paste.neekhar.dev/${id}`;
 const lineCount = highlightedLines.length || 1;
 const isMarkdown = paste?.language === 'markdown';
 
@@ -184,14 +184,14 @@ const ogDescription = paste
   <div class="paste-app">
     <header class="toolbar">
       <div class="toolbar-left">
-        <a href="/" class="brand">
+        <a href="https://neekhar.dev" class="brand">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <polyline points="15 18 9 12 15 6"></polyline>
           </svg>
           <span>neekhar.dev</span>
         </a>
         <span class="separator">/</span>
-        <a href="/paste" class="nav-link">paste</a>
+        <a href="/" class="nav-link">paste</a>
         {paste && (
           <>
             <span class="separator">/</span>
@@ -267,13 +267,13 @@ const ogDescription = paste
                 <rect x="18" y="18" width="3" height="3"></rect>
               </svg>
             </button>
-            <a href={`/paste?fork=${id}`} class="toolbar-btn with-tooltip" data-tooltip="Fork & edit">
+            <a href={`/?fork=${id}`} class="toolbar-btn with-tooltip" data-tooltip="Fork & edit">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path>
                 <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path>
               </svg>
             </a>
-            <a href="/paste" class="new-btn with-tooltip" data-tooltip="Create new paste">
+            <a href="/" class="new-btn with-tooltip" data-tooltip="Create new paste">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <line x1="12" y1="5" x2="12" y2="19"></line>
                 <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -289,7 +289,7 @@ const ogDescription = paste
       <div class="error-container">
         <h2>Paste Not Found</h2>
         <p>{error}</p>
-        <a href="/paste" class="new-paste-btn">Create New Paste</a>
+        <a href="/" class="new-paste-btn">Create New Paste</a>
       </div>
     ) : requiresPassword ? (
       <!-- Password Protected Paste -->
@@ -373,7 +373,7 @@ const ogDescription = paste
       </div>
       <div class="status-right">
         <span class="status-hint"><span class="mod-key">Ctrl</span>+A select all</span>
-        <a href="/paste" class="status-link">New Paste</a>
+        <a href="/" class="status-link">New Paste</a>
       </div>
     </footer>
   </div>

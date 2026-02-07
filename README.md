@@ -2,7 +2,7 @@
 
 A minimal pastebin with syntax highlighting, built with Astro + CodeMirror on Cloudflare.
 
-**Live:** [neekhar.dev/paste](https://neekhar.dev/paste)
+**Live:** [paste.neekhar.dev](https://paste.neekhar.dev)
 
 ## Features
 
