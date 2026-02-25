@@ -1,6 +1,16 @@
 import type { APIRoute, AstroCookies } from 'astro';
 import { clearSessionCookie, sanitizeNextPath } from '../../../lib/auth';
 
+function redirectResponse(location: string): Response {
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: location,
+      'Cache-Control': 'no-store',
+    },
+  });
+}
+
 const logout = (request: Request, cookies: AstroCookies): Response => {
   clearSessionCookie(cookies);
 
@@ -8,7 +18,7 @@ const logout = (request: Request, cookies: AstroCookies): Response => {
   const next = sanitizeNextPath(requestUrl.searchParams.get('next'));
 
   if (request.method === 'GET') {
-    return Response.redirect(new URL(next, requestUrl.origin).toString(), 302);
+    return redirectResponse(new URL(next, requestUrl.origin).toString());
   }
 
   return new Response(JSON.stringify({ ok: true }), {

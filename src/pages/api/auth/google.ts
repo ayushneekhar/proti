@@ -6,6 +6,16 @@ import {
   setOAuthStateCookie,
 } from '../../../lib/auth';
 
+function redirectResponse(location: string): Response {
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: location,
+      'Cache-Control': 'no-store',
+    },
+  });
+}
+
 export const GET: APIRoute = async ({ request, locals, cookies }) => {
   const { GOOGLE_CLIENT_ID } = locals.runtime.env;
 
@@ -35,5 +45,5 @@ export const GET: APIRoute = async ({ request, locals, cookies }) => {
   authUrl.searchParams.set('state', nonce);
   authUrl.searchParams.set('prompt', 'select_account');
 
-  return Response.redirect(authUrl.toString(), 302);
+  return redirectResponse(authUrl.toString());
 };

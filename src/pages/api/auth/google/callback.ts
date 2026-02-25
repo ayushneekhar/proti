@@ -21,7 +21,13 @@ interface GoogleUserResponse {
 }
 
 function redirectTo(path: string, origin: string): Response {
-  return Response.redirect(new URL(path, origin).toString(), 302);
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: new URL(path, origin).toString(),
+      'Cache-Control': 'no-store',
+    },
+  });
 }
 
 export const GET: APIRoute = async ({ request, locals, cookies }) => {
