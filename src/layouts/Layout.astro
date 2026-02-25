@@ -19,6 +19,7 @@ const {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>{title}</title>
     <meta name="description" content={description} />
     
@@ -52,13 +53,58 @@ const {
 
         setTheme(initialTheme);
 
+        // Mouse movement tracking for background halo effect
+        document.addEventListener('mousemove', (e) => {
+          root.style.setProperty('--mouse-x', `${e.clientX}px`);
+          root.style.setProperty('--mouse-y', `${e.clientY}px`);
+        });
+
         // Add event listener when DOM is ready
         document.addEventListener('DOMContentLoaded', () => {
           const toggle = document.querySelector(".theme-toggle");
           if (toggle) {
-            toggle.addEventListener("click", () => {
+            toggle.addEventListener("click", (event) => {
               const nextTheme = root.dataset.theme === "light" ? "dark" : "light";
-              setTheme(nextTheme);
+              
+              // Fallback for browsers that don't support View Transitions
+              if (!document.startViewTransition) {
+                setTheme(nextTheme);
+                return;
+              }
+
+              // Get click coordinates
+              const x = event.clientX;
+              const y = event.clientY;
+
+              // Calculate distance to the furthest corner
+              const endRadius = Math.hypot(
+                Math.max(x, innerWidth - x),
+                Math.max(y, innerHeight - y)
+              );
+
+              // Start the transition
+              const transition = document.startViewTransition(() => {
+                setTheme(nextTheme);
+              });
+
+              // Wait for the pseudo-elements to be created, then animate
+              transition.ready.then(() => {
+                const clipPath = [
+                  `circle(0px at ${x}px ${y}px)`,
+                  `circle(${endRadius}px at ${x}px ${y}px)`
+                ];
+
+                document.documentElement.animate(
+                  {
+                    clipPath: clipPath,
+                  },
+                  {
+                    duration: 500,
+                    easing: "cubic-bezier(0.25, 1, 0.5, 1)",
+                    pseudoElement: "::view-transition-new(root)",
+                  }
+                );
+              });
             });
           }
         });

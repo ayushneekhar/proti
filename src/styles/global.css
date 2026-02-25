@@ -1,24 +1,46 @@
 :root {
-  --font-family: "Space Mono", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  --bg: #f1e9da;
-  --text: #1f2227;
-  --accent: #4f46e5;
-  --muted: #575d6b;
-  --surface: #fdf3dd;
-  --outline: rgba(31, 34, 39, 0.18);
-  --surface-tint: rgba(255, 244, 224, 0.72);
-  background-color: var(--bg);
-  color: var(--text);
+  --font-mono: "Space Mono", Menlo, Monaco, Consolas, "Liberation Mono",
+    monospace;
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+
+  --bg: #e5e5f7;
+  --text: #111111;
+  --accent: #ff3300;
+  --accent-text: #ffffff;
+  --accent-secondary: #0044ff;
+  --surface: #ffffff;
+  --outline: #111111;
+
+  --proti-bg: #111111;
+  --proti-text: #ffffff;
+
+  --brutal-border: 4px solid var(--outline);
+  --brutal-shadow: 8px 8px 0px 0px var(--outline);
+  --brutal-shadow-hover: 4px 4px 0px 0px var(--outline);
+
+  /* Plus pattern for light mode */
+  --pattern-plus: url('data:image/svg+xml;utf8,<svg width="40" height="40" xmlns="http://www.w3.org/2000/svg"><path d="M20 16v8m-4-4h8" stroke="%23111111" stroke-width="2" stroke-linecap="round" fill="none"><animateTransform attributeName="transform" type="rotate" from="0 20 20" to="90 20 20" dur="4s" repeatCount="indefinite"/></path></svg>');
 }
 
 :root[data-theme="dark"] {
-  --bg: #17191c;
-  --text: #e7e6f2;
-  --accent: #facc15;
-  --muted: #9aa6c6;
-  --surface: #1f2227;
-  --outline: rgba(231, 230, 242, 0.28);
-  --surface-tint: rgba(23, 25, 28, 0.65);
+  --bg: #09090b;
+  --text: #fafafa;
+  --accent: #4f46e5;
+  --accent-text: #ffffff;
+  --accent-secondary: #ec4899;
+  --surface: #18181b;
+  --outline: #e4e4e7;
+
+  --proti-bg: #e5e5f7;
+  --proti-text: #111111;
+
+  --brutal-border: 4px solid var(--outline);
+  --brutal-shadow: 8px 8px 0px 0px var(--accent);
+  --brutal-shadow-hover: 4px 4px 0px 0px var(--accent);
+
+  /* Plus pattern for dark mode */
+  --pattern-plus: url('data:image/svg+xml;utf8,<svg width="40" height="40" xmlns="http://www.w3.org/2000/svg"><path d="M20 16v8m-4-4h8" stroke="%23e4e4e7" stroke-width="2" stroke-linecap="round" fill="none"><animateTransform attributeName="transform" type="rotate" from="0 20 20" to="90 20 20" dur="4s" repeatCount="indefinite"/></path></svg>');
 }
 
 *,
@@ -29,76 +51,117 @@
 
 body {
   margin: 0;
-  font-family: var(--font-family);
+  font-family: var(--font-sans);
   background-color: var(--bg);
   color: var(--text);
   min-height: 100vh;
+  position: relative;
 }
 
-@keyframes fadeUp {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* Base Pattern (Always visible, low opacity) */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background-image: var(--pattern-plus);
+  opacity: 0.15;
+  pointer-events: none;
 }
 
-.animate {
-  opacity: 0;
-  transform: translateY(12px);
-  animation: fadeUp 0.6s ease var(--delay, 0s) forwards;
+/* Interactive Halo Pattern Overlay (Brighter, follows cursor) */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image: var(--pattern-plus);
+  pointer-events: none;
+  /* Create the halo mask centered on the mouse position */
+  -webkit-mask-image: radial-gradient(
+    circle 250px at var(--mouse-x, 50vw) var(--mouse-y, 50vh),
+    black 0%,
+    transparent 100%
+  );
+  mask-image: radial-gradient(
+    circle 250px at var(--mouse-x, 50vw) var(--mouse-y, 50vh),
+    black 0%,
+    transparent 100%
+  );
+  opacity: 0.5;
+}
+
+:root[data-theme="light"] body::before {
+  opacity: 0.08;
+}
+
+:root[data-theme="light"] body::after {
+  opacity: 0.35;
+}
+
+:root[data-theme="dark"] body::before {
+  opacity: 0.06;
+}
+
+:root[data-theme="dark"] body::after {
+  opacity: 0.4;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-mono);
+  margin: 0;
+  text-transform: uppercase;
 }
 
 a {
-  color: var(--accent);
+  color: inherit;
   text-decoration: none;
 }
 
-a:hover {
-  text-decoration: underline;
+button {
+  font-family: var(--font-mono);
 }
 
 /* Theme toggle button */
 .theme-toggle {
-  border: 1px solid var(--outline);
-  background-color: var(--surface-tint);
+  border: var(--brutal-border);
+  background-color: var(--surface);
   color: var(--text);
-  width: 36px;
-  height: 36px;
+  width: 48px;
+  height: 48px;
   padding: 0;
-  border-radius: 18px;
-  font-family: var(--font-family);
-  font-size: 0.9rem;
   cursor: pointer;
-  transition: border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  transition: all 0.15s ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--brutal-shadow);
 }
 
 .theme-toggle:hover,
 .theme-toggle:focus {
-  border-color: var(--accent);
-  color: var(--accent);
-  background-color: rgba(255, 255, 255, 0.85);
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12);
+  transform: translate(4px, 4px);
+  box-shadow: var(--brutal-shadow-hover);
+  background-color: var(--accent);
+  color: var(--accent-text);
+  border-color: var(--outline);
   outline: none;
 }
 
 .theme-toggle .icon {
-  width: 16px;
-  height: 16px;
+  width: 24px;
+  height: 24px;
   display: none;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  stroke-width: 2;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
 }
 
 :root[data-theme="light"] .theme-toggle .icon--sun {
@@ -107,4 +170,19 @@ a:hover {
 
 :root[data-theme="dark"] .theme-toggle .icon--moon {
   display: block;
+}
+
+/* View Transitions - Telegram Style Theme Toggle */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 2;
 }
