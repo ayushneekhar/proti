@@ -10,6 +10,8 @@ A minimal pastebin with syntax highlighting, built with Astro + CodeMirror on Cl
 - Auto-indentation, bracket matching, code folding
 - Light/dark theme
 - 30-day auto-expiration
+- Google sign-in for protected file uploads
+- File upload portal with clipboard paste support (1-hour expiry)
 - Shareable URLs
 
 ## Stack
@@ -30,6 +32,11 @@ A minimal pastebin with syntax highlighting, built with Astro + CodeMirror on Cl
    ```
 3. Connect to Cloudflare Pages
 4. Add KV bindings in Settings → Functions → KV namespace bindings
+5. Add auth secrets/vars:
+   - `AUTH_SECRET` (strong random string for signing session cookies)
+   - `GOOGLE_CLIENT_ID`
+   - `GOOGLE_CLIENT_SECRET`
+   - `GOOGLE_REDIRECT_URI` (optional; defaults to `https://<your-domain>/api/auth/google/callback`)
 
 ## Dev
 

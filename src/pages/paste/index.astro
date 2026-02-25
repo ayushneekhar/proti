@@ -76,6 +76,9 @@ import Layout from '../../layouts/Layout.astro';
             </svg>
           </button>
         </div>
+
+        <a id="file-upload-link" class="portal-link hidden" href="/files">File Upload</a>
+        <button id="auth-btn" class="auth-btn" type="button">Sign in with Google</button>
         
         <button class="theme-toggle" type="button" aria-label="Toggle color theme">
           <svg class="icon icon--sun" viewBox="0 0 24 24" aria-hidden="true">
@@ -704,6 +707,9 @@ import Layout from '../../layouts/Layout.astro';
   // Create editor
   const container = document.getElementById('editor-container')!;
   const saveBtn = document.getElementById('save-btn') as HTMLButtonElement;
+  const authBtn = document.getElementById('auth-btn') as HTMLButtonElement;
+  const fileUploadLink = document.getElementById('file-upload-link') as HTMLAnchorElement;
+  let isAuthenticated = false;
   
   // Custom dropdown elements
   const languageDropdown = document.getElementById('language-dropdown')!;
@@ -892,6 +898,74 @@ import Layout from '../../layouts/Layout.astro';
     toast.className = `toast ${type}`;
     setTimeout(() => toast.classList.add('hidden'), 3000);
   }
+
+  function setAuthUI(authenticated: boolean, email?: string) {
+    isAuthenticated = authenticated;
+
+    if (authenticated) {
+      const shortLabel = email ? email.split('@')[0] : null;
+      authBtn.textContent = shortLabel ? `Sign out (${shortLabel})` : 'Sign out';
+      authBtn.classList.add('signed-in');
+      fileUploadLink.classList.remove('hidden');
+      return;
+    }
+
+    authBtn.textContent = 'Sign in with Google';
+    authBtn.classList.remove('signed-in');
+    fileUploadLink.classList.add('hidden');
+  }
+
+  async function refreshAuthState() {
+    try {
+      const response = await fetch('/api/auth/session', { cache: 'no-store' });
+      if (!response.ok) {
+        setAuthUI(false);
+        return;
+      }
+
+      const data = await response.json();
+      if (data.authenticated) {
+        setAuthUI(true, data.user?.email);
+      } else {
+        setAuthUI(false);
+      }
+    } catch {
+      setAuthUI(false);
+    }
+  }
+
+  authBtn.addEventListener('click', async () => {
+    if (!isAuthenticated) {
+      window.location.href = '/api/auth/google?next=%2Ffiles';
+      return;
+    }
+
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      setAuthUI(false);
+      showToast('Signed out');
+    } catch {
+      showToast('Failed to sign out', 'error');
+    }
+  });
+
+  const authParam = new URLSearchParams(window.location.search).get('auth');
+  if (authParam === 'required') {
+    showToast('Sign in with Google to access File Upload', 'warning');
+  } else if (authParam === 'failed') {
+    showToast('Google sign-in failed. Please retry.', 'error');
+  } else if (authParam === 'misconfigured') {
+    showToast('Auth config missing on server', 'error');
+  }
+
+  if (authParam) {
+    const clean = new URL(window.location.href);
+    clean.searchParams.delete('auth');
+    const suffix = `${clean.search}${clean.hash}`;
+    window.history.replaceState({}, '', `${clean.pathname}${suffix}`);
+  }
+
+  refreshAuthState();
 
   function clearJsonError() {
     editor.dispatch({ effects: setErrorLine.of(null) });
@@ -1618,6 +1692,54 @@ import Layout from '../../layouts/Layout.astro';
     background-color: var(--muted);
   }
 
+  .portal-link {
+    display: inline-flex;
+    align-items: center;
+    height: 32px;
+    padding: 0 10px;
+    border: 1px solid var(--outline);
+    border-radius: 6px;
+    font-family: var(--font-family);
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--accent);
+    text-decoration: none;
+    background-color: var(--surface-tint);
+    white-space: nowrap;
+  }
+
+  .portal-link:hover {
+    border-color: var(--accent);
+    text-decoration: none;
+  }
+
+  .portal-link.hidden {
+    display: none;
+  }
+
+  .auth-btn {
+    display: inline-flex;
+    align-items: center;
+    height: 32px;
+    padding: 0 10px;
+    border: 1px solid var(--outline);
+    border-radius: 6px;
+    background-color: var(--surface-tint);
+    color: var(--text);
+    font-family: var(--font-family);
+    font-size: 0.75rem;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .auth-btn:hover {
+    border-color: var(--accent);
+  }
+
+  .auth-btn.signed-in {
+    color: var(--accent);
+  }
+
   .save-btn {
     display: inline-flex;
     align-items: center;
@@ -2165,6 +2287,18 @@ import Layout from '../../layouts/Layout.astro';
 
     .save-btn {
       padding: 6px 8px;
+    }
+
+    .portal-link {
+      padding: 0 8px;
+      font-size: 0.72rem;
+    }
+
+    .auth-btn {
+      padding: 0 8px;
+      max-width: 130px;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .tool-btn {

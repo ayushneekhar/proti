@@ -1,0 +1,192 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { formatFileSize, getFileKey, isImageType, type StoredFile } from '../../../lib/file-store';
+
+const { id } = Astro.params;
+let file: StoredFile | null = null;
+let error: string | null = null;
+
+if (!id) {
+  error = 'File not found';
+} else {
+  const raw = await Astro.locals.runtime.env.PASTE_STORE.get(getFileKey(id));
+
+  if (!raw) {
+    error = 'File not found or expired';
+  } else {
+    const parsed = JSON.parse(raw) as StoredFile;
+    const expiresAt = new Date(parsed.expiresAt).getTime();
+    if (Number.isFinite(expiresAt) && expiresAt <= Date.now()) {
+      error = 'File has expired';
+    } else {
+      file = parsed;
+    }
+  }
+}
+
+function getRemainingTime(expiresAt?: string): string {
+  if (!expiresAt) return 'unknown';
+  const diffMs = new Date(expiresAt).getTime() - Date.now();
+  if (diffMs <= 0) return 'expired';
+  const minutes = Math.floor(diffMs / (1000 * 60));
+  if (minutes < 1) return '<1 min left';
+  if (minutes < 60) return `${minutes} min left`;
+  return `${Math.floor(minutes / 60)}h left`;
+}
+
+const isImage = file ? isImageType(file.type) : false;
+const title = file ? `${file.name} | Proti File` : 'File Not Found';
+const shareUrl = id ? `https://paste.neekhar.dev/file/${id}` : 'https://paste.neekhar.dev/file';
+---
+
+<Layout title={title} description="Shared file from Proti" ogUrl={shareUrl}>
+  <main class="file-page">
+    <header class="header">
+      <a href="/" class="nav-link">Paste</a>
+      <span class="separator">/</span>
+      <span class="page-title">file</span>
+      <button class="theme-toggle" type="button" aria-label="Toggle color theme">
+        <svg class="icon icon--sun" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="4"></circle>
+          <line x1="12" y1="2" x2="12" y2="4"></line>
+          <line x1="12" y1="20" x2="12" y2="22"></line>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+          <line x1="2" y1="12" x2="4" y2="12"></line>
+          <line x1="20" y1="12" x2="22" y2="12"></line>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+        <svg class="icon icon--moon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M21 12.79A9 9 0 0111.21 3 7 7 0 1021 12.79z"></path>
+        </svg>
+      </button>
+    </header>
+
+    {error && (
+      <section class="card">
+        <h1>Unavailable</h1>
+        <p>{error}</p>
+      </section>
+    )}
+
+    {file && (
+      <section class="card">
+        <h1>{file.name}</h1>
+        <div class="meta-grid">
+          <span>Type: {file.type}</span>
+          <span>Size: {formatFileSize(file.size)}</span>
+          <span>Expires: {getRemainingTime(file.expiresAt)}</span>
+        </div>
+
+        {isImage && <img class="preview" src={`/api/files/${id}`} alt={file.name} />}
+
+        {!isImage && <p class="non-image">Preview unavailable for this file type.</p>}
+
+        <div class="actions">
+          <a class="btn" href={`/api/files/${id}`} target="_blank" rel="noopener noreferrer">Open</a>
+          <a class="btn primary" href={`/api/files/${id}?download=1`} download={file.name}>Download</a>
+        </div>
+      </section>
+    )}
+  </main>
+</Layout>
+
+<style>
+  .file-page {
+    min-height: 100vh;
+    padding: 24px;
+    background: var(--surface-tint);
+  }
+
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 auto 14px;
+    max-width: 860px;
+    font-size: 0.85rem;
+  }
+
+  .nav-link {
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 700;
+  }
+
+  .separator {
+    color: var(--muted);
+  }
+
+  .page-title {
+    color: var(--text);
+    margin-right: auto;
+    text-transform: lowercase;
+  }
+
+  .card {
+    margin: 0 auto;
+    max-width: 860px;
+    background: var(--surface);
+    border: 1px solid var(--outline);
+    border-radius: 14px;
+    padding: 22px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.08);
+  }
+
+  .card h1 {
+    margin: 0 0 12px;
+    font-size: 1.2rem;
+    word-break: break-word;
+  }
+
+  .card p {
+    margin: 0;
+    color: var(--muted);
+  }
+
+  .meta-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    color: var(--muted);
+    font-size: 0.82rem;
+    margin-bottom: 16px;
+  }
+
+  .preview {
+    width: 100%;
+    max-height: 70vh;
+    object-fit: contain;
+    border: 1px solid var(--outline);
+    border-radius: 10px;
+    background: var(--surface-tint);
+  }
+
+  .non-image {
+    margin-top: 10px !important;
+    font-size: 0.9rem;
+  }
+
+  .actions {
+    margin-top: 16px;
+    display: flex;
+    gap: 8px;
+  }
+
+  .btn {
+    border: 1px solid var(--outline);
+    border-radius: 8px;
+    padding: 8px 12px;
+    text-decoration: none;
+    color: var(--text);
+    font-size: 0.82rem;
+    background: var(--surface-tint);
+  }
+
+  .btn.primary {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+  }
+</style>

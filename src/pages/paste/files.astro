@@ -1,0 +1,422 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { getSessionUser } from '../../lib/auth';
+import { formatFileSize, MAX_UPLOAD_SIZE_BYTES } from '../../lib/file-store';
+
+const user = await getSessionUser(Astro.cookies, Astro.locals.runtime.env.AUTH_SECRET);
+if (!user) {
+  return Astro.redirect('/?auth=required');
+}
+---
+
+<Layout
+  title="File Upload | Proti"
+  description="Upload and share files with 1-hour expiry."
+  ogUrl="https://paste.neekhar.dev/files"
+>
+  <div class="upload-app">
+    <header class="toolbar">
+      <div class="toolbar-left">
+        <a href="/" class="nav-link">Paste</a>
+        <span class="separator">/</span>
+        <span class="page-title">file upload</span>
+      </div>
+      <div class="toolbar-right">
+        <span class="user-email">{user.email}</span>
+        <button class="theme-toggle" type="button" aria-label="Toggle color theme">
+          <svg class="icon icon--sun" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"></circle>
+            <line x1="12" y1="2" x2="12" y2="4"></line>
+            <line x1="12" y1="20" x2="12" y2="22"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="2" y1="12" x2="4" y2="12"></line>
+            <line x1="20" y1="12" x2="22" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>
+          <svg class="icon icon--moon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 0111.21 3 7 7 0 1021 12.79z"></path>
+          </svg>
+        </button>
+        <button id="logout-btn" class="action-btn" type="button">Sign out</button>
+      </div>
+    </header>
+
+    <main class="content">
+      <section class="upload-card">
+        <h1>File Upload Portal</h1>
+        <p>Drop a file, choose one, or paste directly from clipboard. Shared files expire after exactly 1 hour.</p>
+        <p class="hint">Maximum upload size: {formatFileSize(MAX_UPLOAD_SIZE_BYTES)}</p>
+
+        <div id="drop-zone" class="drop-zone" tabindex="0">
+          <input type="file" id="file-input" class="visually-hidden" />
+          <div class="drop-copy">
+            <strong>Drop file here</strong>
+            <span>or click to pick a file</span>
+            <span class="paste-hint">You can also press <kbd>Ctrl</kbd>+<kbd>V</kbd> to paste an image/file</span>
+          </div>
+        </div>
+
+        <div id="upload-state" class="upload-state hidden"></div>
+
+        <div id="result" class="result hidden">
+          <h2>Share Link</h2>
+          <div class="result-row">
+            <input id="share-url" class="share-url" type="text" readonly />
+            <button id="copy-btn" type="button" class="action-btn">Copy</button>
+          </div>
+          <a id="open-link" class="open-link" target="_blank" rel="noopener noreferrer">Open file page</a>
+        </div>
+      </section>
+    </main>
+  </div>
+</Layout>
+
+<script>
+  const dropZone = document.getElementById('drop-zone') as HTMLDivElement;
+  const fileInput = document.getElementById('file-input') as HTMLInputElement;
+  const uploadState = document.getElementById('upload-state') as HTMLDivElement;
+  const result = document.getElementById('result') as HTMLDivElement;
+  const shareUrlInput = document.getElementById('share-url') as HTMLInputElement;
+  const copyBtn = document.getElementById('copy-btn') as HTMLButtonElement;
+  const openLink = document.getElementById('open-link') as HTMLAnchorElement;
+  const logoutBtn = document.getElementById('logout-btn') as HTMLButtonElement;
+
+  function setUploadState(message: string, type: 'info' | 'error' | 'success' = 'info') {
+    uploadState.classList.remove('hidden', 'info', 'error', 'success');
+    uploadState.classList.add(type);
+    uploadState.textContent = message;
+  }
+
+  function clearUploadState() {
+    uploadState.classList.add('hidden');
+  }
+
+  async function uploadFile(file: File) {
+    clearUploadState();
+    result.classList.add('hidden');
+    setUploadState(`Uploading ${file.name || 'clipboard file'}...`, 'info');
+
+    const formData = new FormData();
+    formData.set('file', file, file.name || 'clipboard-file');
+
+    try {
+      const response = await fetch('/api/files', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const payload = await response.json();
+      if (!response.ok) {
+        setUploadState(payload.error || 'Upload failed', 'error');
+        return;
+      }
+
+      shareUrlInput.value = payload.url;
+      openLink.href = payload.url;
+      result.classList.remove('hidden');
+      setUploadState('Upload complete. Link expires in 1 hour.', 'success');
+    } catch (error) {
+      setUploadState('Upload failed due to a network error', 'error');
+      console.error(error);
+    }
+  }
+
+  function getFirstClipboardFile(event: ClipboardEvent): File | null {
+    const items = Array.from(event.clipboardData?.items || []);
+    for (const item of items) {
+      if (item.kind === 'file') {
+        const file = item.getAsFile();
+        if (file) return file;
+      }
+    }
+    return null;
+  }
+
+  dropZone.addEventListener('click', () => fileInput.click());
+  dropZone.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      fileInput.click();
+    }
+  });
+
+  dropZone.addEventListener('dragover', (event) => {
+    event.preventDefault();
+    dropZone.classList.add('dragging');
+  });
+
+  dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('dragging');
+  });
+
+  dropZone.addEventListener('drop', (event) => {
+    event.preventDefault();
+    dropZone.classList.remove('dragging');
+    const file = event.dataTransfer?.files?.[0];
+    if (file) {
+      uploadFile(file);
+    }
+  });
+
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files?.[0];
+    if (file) {
+      uploadFile(file);
+    }
+    fileInput.value = '';
+  });
+
+  document.addEventListener('paste', (event) => {
+    const file = getFirstClipboardFile(event);
+    if (!file) return;
+    event.preventDefault();
+    uploadFile(file);
+  });
+
+  copyBtn.addEventListener('click', async () => {
+    if (!shareUrlInput.value) return;
+    await navigator.clipboard.writeText(shareUrlInput.value);
+    setUploadState('Share link copied', 'success');
+  });
+
+  logoutBtn.addEventListener('click', async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    window.location.href = '/';
+  });
+</script>
+
+<style>
+  .upload-app {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface-tint);
+  }
+
+  .toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    min-height: 52px;
+    padding: 0 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--outline);
+  }
+
+  .toolbar-left,
+  .toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .nav-link,
+  .page-title,
+  .separator {
+    font-size: 0.85rem;
+  }
+
+  .nav-link {
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 700;
+  }
+
+  .page-title {
+    color: var(--text);
+    text-transform: lowercase;
+  }
+
+  .separator {
+    color: var(--muted);
+  }
+
+  .user-email {
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  .action-btn {
+    border: 1px solid var(--outline);
+    background: var(--surface-tint);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-family: var(--font-family);
+    font-size: 0.8rem;
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  .action-btn:hover {
+    border-color: var(--accent);
+  }
+
+  .content {
+    flex: 1;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+  }
+
+  .upload-card {
+    width: min(720px, 100%);
+    background: var(--surface);
+    border: 1px solid var(--outline);
+    border-radius: 14px;
+    padding: 24px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08);
+  }
+
+  .upload-card h1 {
+    margin: 0 0 10px;
+    font-size: 1.4rem;
+  }
+
+  .upload-card p {
+    margin: 8px 0 0;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .hint {
+    font-size: 0.82rem;
+  }
+
+  .drop-zone {
+    margin-top: 18px;
+    border: 2px dashed var(--outline);
+    border-radius: 12px;
+    padding: 36px 16px;
+    text-align: center;
+    background: var(--surface-tint);
+    cursor: pointer;
+    transition: border-color 0.15s ease, transform 0.15s ease;
+    outline: none;
+  }
+
+  .drop-zone:hover,
+  .drop-zone.dragging,
+  .drop-zone:focus {
+    border-color: var(--accent);
+    transform: translateY(-1px);
+  }
+
+  .drop-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    color: var(--text);
+  }
+
+  .drop-copy strong {
+    font-size: 1rem;
+  }
+
+  .drop-copy span {
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+
+  .paste-hint kbd {
+    font-family: var(--font-family);
+    background: var(--surface);
+    border: 1px solid var(--outline);
+    border-radius: 4px;
+    padding: 1px 5px;
+  }
+
+  .upload-state {
+    margin-top: 14px;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 0.85rem;
+  }
+
+  .upload-state.hidden {
+    display: none;
+  }
+
+  .upload-state.info {
+    background: rgba(59, 130, 246, 0.12);
+    color: #2563eb;
+  }
+
+  .upload-state.error {
+    background: rgba(239, 68, 68, 0.12);
+    color: #dc2626;
+  }
+
+  .upload-state.success {
+    background: rgba(34, 197, 94, 0.12);
+    color: #16a34a;
+  }
+
+  .result {
+    margin-top: 16px;
+    padding: 14px;
+    border: 1px solid var(--outline);
+    border-radius: 10px;
+    background: var(--surface-tint);
+  }
+
+  .result.hidden {
+    display: none;
+  }
+
+  .result h2 {
+    margin: 0 0 8px;
+    font-size: 0.95rem;
+  }
+
+  .result-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .share-url {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid var(--outline);
+    border-radius: 8px;
+    font-size: 0.82rem;
+    background: var(--surface);
+    color: var(--text);
+  }
+
+  .open-link {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 0.8rem;
+    color: var(--accent);
+  }
+
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+
+  @media (max-width: 700px) {
+    .toolbar {
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 8px 12px;
+      min-height: auto;
+    }
+
+    .result-row {
+      flex-direction: column;
+      align-items: stretch;
+    }
+  }
+</style>
