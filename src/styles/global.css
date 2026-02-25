@@ -1,6 +1,8 @@
 :root {
   --font-mono: "Space Mono", Menlo, Monaco, Consolas, "Liberation Mono",
     monospace;
+  --font-paste-mono: "IBM Plex Mono", "Space Mono", Menlo, Monaco, Consolas,
+    "Liberation Mono", monospace;
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
 
@@ -11,6 +13,10 @@
   --accent-secondary: #0044ff;
   --surface: #ffffff;
   --outline: #111111;
+  --surface-tint: #f3f4f6;
+  --muted: #6b7280;
+  --accent-rgb: 255, 51, 0;
+  --font-family: var(--font-mono);
 
   --proti-bg: #111111;
   --proti-text: #ffffff;
@@ -31,6 +37,10 @@
   --accent-secondary: #ec4899;
   --surface: #18181b;
   --outline: #e4e4e7;
+  --surface-tint: #272b36;
+  --muted: #9ca3af;
+  --accent-rgb: 79, 70, 229;
+  --font-family: var(--font-mono);
 
   --proti-bg: #e5e5f7;
   --proti-text: #111111;
@@ -56,6 +66,39 @@ body {
   color: var(--text);
   min-height: 100vh;
   position: relative;
+}
+
+body[data-app="paste"] {
+  --font-family: var(--font-paste-mono);
+  --accent: #ff4d00;
+  --accent-text: #111111;
+  --surface: #fffdf8;
+  --surface-tint: #f2ece2;
+  --text: #111111;
+  --muted: #57534e;
+  --outline: #111111;
+  --paste-shadow: 3px 3px 0 #111111;
+  --paste-shadow-hover: 1px 1px 0 #111111;
+
+  font-family: var(--font-family);
+  background-color: var(--surface-tint);
+}
+
+body[data-app="paste"]::before,
+body[data-app="paste"]::after {
+  content: none;
+}
+
+:root[data-theme="dark"] body[data-app="paste"] {
+  --accent: #ff7a1a;
+  --accent-text: #111111;
+  --surface: #1b1f2a;
+  --surface-tint: #252b39;
+  --text: #f5f5f4;
+  --muted: #b0b8c5;
+  --outline: #f5f5f4;
+  --paste-shadow: 3px 3px 0 #000000;
+  --paste-shadow-hover: 1px 1px 0 #000000;
 }
 
 /* Base Pattern (Always visible, low opacity) */
@@ -127,6 +170,128 @@ button {
   font-family: var(--font-mono);
 }
 
+body[data-app="paste"] h1,
+body[data-app="paste"] h2,
+body[data-app="paste"] h3,
+body[data-app="paste"] h4,
+body[data-app="paste"] h5,
+body[data-app="paste"] h6 {
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+body[data-app="paste"] button,
+body[data-app="paste"] input,
+body[data-app="paste"] select,
+body[data-app="paste"] textarea {
+  font-family: var(--font-family);
+}
+
+body[data-app="paste"] :is(.toolbar, .status-bar) {
+  background-color: var(--surface);
+}
+
+body[data-app="paste"] :is(.toolbar, .status-bar) {
+  border-color: var(--outline);
+}
+
+body[data-app="paste"] :is(.toolbar, .status-bar) {
+  box-shadow: 0 2px 0 0 #111111;
+}
+
+:root[data-theme="dark"] body[data-app="paste"] :is(.toolbar, .status-bar) {
+  box-shadow: 0 2px 0 0 #000000;
+}
+
+body[data-app="paste"] :is(
+    .theme-toggle,
+    .tool-btn,
+    .toolbar-btn,
+    .language-trigger,
+    .portal-link,
+    .auth-btn,
+    .action-btn,
+    .btn,
+    .new-btn,
+    .new-paste-btn,
+    .save-btn
+  ) {
+  border: 2px solid var(--outline);
+  border-radius: 4px;
+  box-shadow: var(--paste-shadow);
+  transition: transform 0.12s ease, box-shadow 0.12s ease,
+    border-color 0.12s ease, background-color 0.12s ease, color 0.12s ease;
+}
+
+body[data-app="paste"] :is(
+    .theme-toggle:hover,
+    .theme-toggle:focus,
+    .tool-btn:hover,
+    .tool-btn:focus,
+    .toolbar-btn:hover,
+    .toolbar-btn:focus,
+    .language-trigger:hover,
+    .language-trigger:focus,
+    .portal-link:hover,
+    .portal-link:focus,
+    .auth-btn:hover,
+    .auth-btn:focus,
+    .action-btn:hover,
+    .action-btn:focus,
+    .btn:hover,
+    .btn:focus,
+    .new-btn:hover,
+    .new-btn:focus,
+    .new-paste-btn:hover,
+    .new-paste-btn:focus,
+    .save-btn:hover,
+    .save-btn:focus
+  ) {
+  transform: translate(2px, 2px);
+  box-shadow: var(--paste-shadow-hover);
+}
+
+body[data-app="paste"] :is(.save-btn, .new-btn, .new-paste-btn) {
+  color: var(--accent-text);
+}
+
+body[data-app="paste"] :is(.theme-toggle, .tool-btn, .toolbar-btn) {
+  background-color: var(--surface);
+}
+
+body[data-app="paste"] :is(.theme-toggle:hover, .theme-toggle:focus) {
+  background-color: var(--accent);
+  color: var(--accent-text);
+  border-color: var(--outline);
+}
+
+body[data-app="paste"] :is(
+    .upload-card,
+    .card,
+    .password-card,
+    .about-modal-content,
+    .qr-modal-content
+  ) {
+  border: 2px solid var(--outline);
+  border-radius: 8px;
+  box-shadow: 6px 6px 0 #111111;
+}
+
+:root[data-theme="dark"] body[data-app="paste"] :is(
+    .upload-card,
+    .card,
+    .password-card,
+    .about-modal-content,
+    .qr-modal-content
+  ) {
+  box-shadow: 6px 6px 0 #000000;
+}
+
+body[data-app="paste"] :is(.drop-zone, .result, .preview) {
+  border-width: 2px;
+  border-radius: 6px;
+}
+
 /* Theme toggle button */
 .theme-toggle {
   border: var(--brutal-border);
@@ -170,6 +335,25 @@ button {
 
 :root[data-theme="dark"] .theme-toggle .icon--moon {
   display: block;
+}
+
+body[data-app="paste"] .theme-toggle {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  background-color: var(--surface);
+  transform: none;
+  flex-shrink: 0;
+}
+
+body[data-app="paste"] .theme-toggle:hover,
+body[data-app="paste"] .theme-toggle:focus {
+  border-color: var(--outline);
+}
+
+body[data-app="paste"] .theme-toggle .icon {
+  width: 14px;
+  height: 14px;
 }
 
 /* View Transitions - Telegram Style Theme Toggle */

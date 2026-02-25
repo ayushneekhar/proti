@@ -12,6 +12,9 @@ const {
   ogImage = "https://neekhar.dev/og-image.png", // Replace with your actual image URL
   ogUrl = "https://neekhar.dev"
 } = Astro.props;
+
+const isPasteRoute =
+  Astro.url.pathname === "/paste" || Astro.url.pathname.startsWith("/paste/");
 ---
 
 <!DOCTYPE html>
@@ -38,9 +41,9 @@ const {
     <meta property="twitter:image" content={ogImage} />
     
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
   </head>
-  <body>
+  <body data-app={isPasteRoute ? "paste" : "site"}>
     <slot />
     <script is:inline>
       (function () {
