@@ -11,7 +11,7 @@ A minimal pastebin with syntax highlighting, built with Astro + CodeMirror on Cl
 - Light/dark theme
 - 30-day auto-expiration
 - Google sign-in for protected file uploads
-- File upload portal with clipboard paste support (1-hour expiry)
+- File upload portal with clipboard paste support (1-hour expiry, stored in Cloudflare R2)
 - Shareable URLs
 
 ## Stack
@@ -30,9 +30,14 @@ A minimal pastebin with syntax highlighting, built with Astro + CodeMirror on Cl
    npx wrangler kv namespace create "PASTE_STORE"
    npx wrangler kv namespace create "SESSION"
    ```
-3. Connect to Cloudflare Pages
-4. Add KV bindings in Settings → Functions → KV namespace bindings
-5. Add auth secrets/vars:
+3. Create R2 buckets:
+   ```bash
+   npx wrangler r2 bucket create proti-file-uploads
+   npx wrangler r2 bucket create proti-file-uploads-preview
+   ```
+4. Connect to Cloudflare Pages
+5. Add KV and R2 bindings in Settings → Functions → Bindings
+6. Add auth secrets/vars:
    - `AUTH_SECRET` (strong random string for signing session cookies)
    - `GOOGLE_CLIENT_ID`
    - `GOOGLE_CLIENT_SECRET`

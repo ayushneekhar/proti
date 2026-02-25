@@ -1,6 +1,13 @@
 ---
 import Layout from '../../../layouts/Layout.astro';
-import { formatFileSize, getFileKey, isImageType, type StoredFile } from '../../../lib/file-store';
+import {
+  formatFileSize,
+  getFileObjectKey,
+  isExpired,
+  isImageType,
+  parseStoredFileFromR2Object,
+  type StoredFile,
+} from '../../../lib/file-store';
 
 const { id } = Astro.params;
 let file: StoredFile | null = null;
@@ -9,14 +16,17 @@ let error: string | null = null;
 if (!id) {
   error = 'File not found';
 } else {
-  const raw = await Astro.locals.runtime.env.PASTE_STORE.get(getFileKey(id));
+  const objectKey = getFileObjectKey(id);
+  const object = await Astro.locals.runtime.env.FILE_UPLOADS.head(objectKey);
 
-  if (!raw) {
+  if (!object) {
     error = 'File not found or expired';
   } else {
-    const parsed = JSON.parse(raw) as StoredFile;
-    const expiresAt = new Date(parsed.expiresAt).getTime();
-    if (Number.isFinite(expiresAt) && expiresAt <= Date.now()) {
+    const parsed = parseStoredFileFromR2Object(object);
+    if (!parsed) {
+      error = 'File metadata is invalid';
+    } else if (isExpired(parsed.expiresAt)) {
+      await Astro.locals.runtime.env.FILE_UPLOADS.delete(objectKey);
       error = 'File has expired';
     } else {
       file = parsed;

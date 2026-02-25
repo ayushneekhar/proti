@@ -1,5 +1,9 @@
 import type { APIRoute } from 'astro';
-import { base64ToBytes, type StoredFile, getFileKey } from '../../../lib/file-store';
+import {
+  getFileObjectKey,
+  isExpired,
+  parseStoredFileFromR2Object,
+} from '../../../lib/file-store';
 
 const sanitizeFilename = (value: string): string => {
   return value.replace(/["\\\r\n]/g, '_');
@@ -15,34 +19,49 @@ export const GET: APIRoute = async ({ params, request, locals }) => {
   }
 
   try {
-    const raw = await locals.runtime.env.PASTE_STORE.get(getFileKey(id));
-    if (!raw) {
+    const objectKey = getFileObjectKey(id);
+    const object = await locals.runtime.env.FILE_UPLOADS.get(objectKey);
+
+    if (!object) {
       return new Response(
         JSON.stringify({ error: 'File not found or expired' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
-    const storedFile = JSON.parse(raw) as StoredFile;
-    const expiresAt = new Date(storedFile.expiresAt).getTime();
-    if (Number.isFinite(expiresAt) && expiresAt <= Date.now()) {
+    const storedFile = parseStoredFileFromR2Object(object);
+    if (!storedFile) {
+      return new Response(
+        JSON.stringify({ error: 'File metadata is invalid' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (isExpired(storedFile.expiresAt)) {
+      await locals.runtime.env.FILE_UPLOADS.delete(objectKey);
       return new Response(
         JSON.stringify({ error: 'File not found or expired' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
-    const bytes = base64ToBytes(storedFile.dataBase64);
+    if (!object.body) {
+      return new Response(
+        JSON.stringify({ error: 'File body is unavailable' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
     const requestUrl = new URL(request.url);
     const download = requestUrl.searchParams.get('download') === '1';
     const dispositionType = download ? 'attachment' : 'inline';
     const safeFilename = sanitizeFilename(storedFile.name || 'file');
 
-    return new Response(bytes, {
+    return new Response(object.body, {
       status: 200,
       headers: {
         'Content-Type': storedFile.type || 'application/octet-stream',
-        'Content-Length': String(bytes.byteLength),
+        'Content-Length': String(object.size),
         'Content-Disposition': `${dispositionType}; filename="${safeFilename}"`,
         'Cache-Control': 'no-store',
       },

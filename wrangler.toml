@@ -13,3 +13,9 @@ preview_id = "e8621471262d43bc86839ebc820f6f3f"
 binding = "SESSION"
 id = "351b286c9cf94ee6a635c28eb1005078"
 preview_id = "eda36ebc4ef94022bfc0ea4a9911ea8c"
+
+# File uploads stored in R2 (create these buckets or rename to match your existing buckets)
+[[r2_buckets]]
+binding = "FILE_UPLOADS"
+bucket_name = "proti-file-uploads"
+preview_bucket_name = "proti-file-uploads-preview"

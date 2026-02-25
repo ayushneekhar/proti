@@ -2,11 +2,11 @@ import type { APIRoute } from 'astro';
 import { nanoid } from 'nanoid';
 import { getSessionUser } from '../../../lib/auth';
 import {
-  FILE_TTL_SECONDS,
   MAX_UPLOAD_SIZE_BYTES,
   createStoredFile,
   formatFileSize,
-  getFileKey,
+  getFileObjectKey,
+  toR2CustomMetadata,
 } from '../../../lib/file-store';
 
 export const POST: APIRoute = async ({ request, locals, cookies }) => {
@@ -45,12 +45,15 @@ export const POST: APIRoute = async ({ request, locals, cookies }) => {
       );
     }
 
-    const storedFile = await createStoredFile(fileInput, user.email);
+    const storedFile = createStoredFile(fileInput, user.email);
     const id = nanoid(10);
-    const key = getFileKey(id);
+    const objectKey = getFileObjectKey(id);
 
-    await locals.runtime.env.PASTE_STORE.put(key, JSON.stringify(storedFile), {
-      expirationTtl: FILE_TTL_SECONDS,
+    await locals.runtime.env.FILE_UPLOADS.put(objectKey, await fileInput.arrayBuffer(), {
+      httpMetadata: {
+        contentType: storedFile.type,
+      },
+      customMetadata: toR2CustomMetadata(storedFile),
     });
 
     const origin = new URL(request.url).origin;

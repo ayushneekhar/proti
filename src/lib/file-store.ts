@@ -1,4 +1,3 @@
-export const FILE_KEY_PREFIX = 'file:';
 export const FILE_TTL_SECONDS = 60 * 60;
 export const MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024;
 
@@ -9,11 +8,18 @@ export interface StoredFile {
   uploadedBy: string;
   createdAt: string;
   expiresAt: string;
-  dataBase64: string;
 }
 
-export function getFileKey(id: string): string {
-  return `${FILE_KEY_PREFIX}${id}`;
+type R2FileObjectLike = {
+  size: number;
+  customMetadata?: Record<string, string> | null;
+  httpMetadata?: {
+    contentType?: string | null;
+  } | null;
+};
+
+export function getFileObjectKey(id: string): string {
+  return `uploads/${id}`;
 }
 
 export function formatFileSize(bytes: number): string {
@@ -26,33 +32,14 @@ export function isImageType(type: string): boolean {
   return type.startsWith('image/');
 }
 
-function bytesToBase64(bytes: Uint8Array): string {
-  let binary = '';
-  const chunkSize = 0x8000;
-
-  for (let index = 0; index < bytes.length; index += chunkSize) {
-    const chunk = bytes.subarray(index, index + chunkSize);
-    binary += String.fromCharCode(...chunk);
-  }
-
-  return btoa(binary);
+export function isExpired(expiresAt: string): boolean {
+  const expiresAtMs = new Date(expiresAt).getTime();
+  return Number.isFinite(expiresAtMs) && expiresAtMs <= Date.now();
 }
 
-export function base64ToBytes(base64: string): Uint8Array {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index);
-  }
-
-  return bytes;
-}
-
-export async function createStoredFile(file: File, uploadedBy: string): Promise<StoredFile> {
+export function createStoredFile(file: File, uploadedBy: string): StoredFile {
   const createdAt = new Date();
   const expiresAt = new Date(createdAt.getTime() + FILE_TTL_SECONDS * 1000);
-  const bytes = new Uint8Array(await file.arrayBuffer());
 
   return {
     name: file.name || 'clipboard-file',
@@ -61,6 +48,38 @@ export async function createStoredFile(file: File, uploadedBy: string): Promise<
     uploadedBy,
     createdAt: createdAt.toISOString(),
     expiresAt: expiresAt.toISOString(),
-    dataBase64: bytesToBase64(bytes),
+  };
+}
+
+export function toR2CustomMetadata(file: StoredFile): Record<string, string> {
+  return {
+    name: file.name,
+    type: file.type,
+    uploadedBy: file.uploadedBy,
+    createdAt: file.createdAt,
+    expiresAt: file.expiresAt,
+  };
+}
+
+export function parseStoredFileFromR2Object(object: R2FileObjectLike): StoredFile | null {
+  const custom = object.customMetadata ?? {};
+
+  const name = custom.name;
+  const uploadedBy = custom.uploadedBy;
+  const createdAt = custom.createdAt;
+  const expiresAt = custom.expiresAt;
+  const type = custom.type || object.httpMetadata?.contentType || 'application/octet-stream';
+
+  if (!name || !uploadedBy || !createdAt || !expiresAt) {
+    return null;
+  }
+
+  return {
+    name,
+    type,
+    size: object.size,
+    uploadedBy,
+    createdAt,
+    expiresAt,
   };
 }
