@@ -267,6 +267,12 @@ const ogDescription = paste
                 <rect x="18" y="18" width="3" height="3"></rect>
               </svg>
             </button>
+            <button id="find-btn" class="toolbar-btn with-tooltip" data-tooltip="Find in paste" aria-label="Find in paste" aria-expanded="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="11" cy="11" r="7"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </button>
             <a href={`/?fork=${id}`} class="toolbar-btn with-tooltip" data-tooltip="Fork & edit">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path>
@@ -284,6 +290,26 @@ const ogDescription = paste
         )}
       </div>
     </header>
+
+    {paste && !requiresPassword && (
+      <div id="find-panel" class="find-panel hidden" role="search" aria-label="Find in paste">
+        <div class="find-controls">
+          <input
+            id="find-input"
+            class="find-input"
+            type="search"
+            placeholder="Find in paste (Ctrl/Cmd+F)"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <span id="find-count" class="find-count">0 matches</span>
+          <button id="find-prev-btn" class="find-nav-btn" type="button" aria-label="Previous match">Prev</button>
+          <button id="find-next-btn" class="find-nav-btn" type="button" aria-label="Next match">Next</button>
+          <button id="find-close-btn" class="find-close-btn" type="button" aria-label="Close find">Close</button>
+        </div>
+        <div id="find-results" class="find-results" aria-live="polite"></div>
+      </div>
+    )}
 
     {error ? (
       <div class="error-container">
@@ -402,6 +428,25 @@ const ogDescription = paste
   const toast = document.getElementById('toast');
   const passwordForm = document.getElementById('password-form');
   const passwordError = document.getElementById('password-error');
+  const findBtn = document.getElementById('find-btn');
+  const findPanel = document.getElementById('find-panel');
+  const findInput = document.getElementById('find-input') as HTMLInputElement | null;
+  const findCount = document.getElementById('find-count');
+  const findResults = document.getElementById('find-results');
+  const findPrevBtn = document.getElementById('find-prev-btn');
+  const findNextBtn = document.getElementById('find-next-btn');
+  const findCloseBtn = document.getElementById('find-close-btn');
+
+  type FindMatch = {
+    line: number;
+    column: number;
+    lineText: string;
+    lineEl: HTMLElement;
+    lineNumberEl: HTMLElement | null;
+  };
+
+  let findMatches: FindMatch[] = [];
+  let activeFindIndex = -1;
 
   function showToast(message: string, type: 'success' | 'error' = 'success') {
     if (!toast) return;
@@ -529,6 +574,242 @@ const ogDescription = paste
   }
 
   // ========================================
+  // Custom Find (full paste search + jump)
+  // ========================================
+  function getCodeLines(): HTMLElement[] {
+    return Array.from(document.querySelectorAll('#code-container .code-line')) as HTMLElement[];
+  }
+
+  function isFindOpen() {
+    return !!findPanel && !findPanel.classList.contains('hidden');
+  }
+
+  function setFindOpen(open: boolean) {
+    if (!findPanel) return;
+    findPanel.classList.toggle('hidden', !open);
+    findBtn?.setAttribute('aria-expanded', open ? 'true' : 'false');
+
+    if (open) {
+      findInput?.focus();
+      findInput?.select();
+    }
+  }
+
+  function ensureCodeViewVisibleForFind() {
+    if (codeContainer && codeContainer.classList.contains('hidden') && mdViewToggle) {
+      mdViewToggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    }
+  }
+
+  function clearFindHighlights() {
+    document.querySelectorAll('.code-line.find-hit, .code-line.find-active-match, .code-line.find-flash').forEach(el => {
+      el.classList.remove('find-hit', 'find-active-match', 'find-flash');
+    });
+    document.querySelectorAll('.line-number.find-hit, .line-number.find-active-match, .line-number.find-flash').forEach(el => {
+      el.classList.remove('find-hit', 'find-active-match', 'find-flash');
+    });
+    document.querySelectorAll('.find-result-btn.active').forEach(el => {
+      el.classList.remove('active');
+    });
+  }
+
+  function updateFindCountLabel() {
+    if (!findCount) return;
+
+    const query = (findInput?.value || '').trim();
+    if (!query) {
+      findCount.textContent = '0 matches';
+      return;
+    }
+
+    if (!findMatches.length) {
+      findCount.textContent = 'No matches';
+      return;
+    }
+
+    findCount.textContent = `${activeFindIndex + 1}/${findMatches.length} matches`;
+  }
+
+  function buildFindExcerpt(lineText: string, column: number, query: string) {
+    const radius = 24;
+    const startIndex = Math.max(0, column - 1 - radius);
+    const endIndex = Math.min(lineText.length, column - 1 + query.length + radius);
+    const prefix = startIndex > 0 ? '…' : '';
+    const suffix = endIndex < lineText.length ? '…' : '';
+    return `${prefix}${lineText.slice(startIndex, endIndex)}${suffix}`;
+  }
+
+  function renderFindResults() {
+    if (!findResults) return;
+    findResults.innerHTML = '';
+
+    const query = (findInput?.value || '').trim();
+    if (!query) return;
+
+    if (!findMatches.length) {
+      const empty = document.createElement('div');
+      empty.className = 'find-empty';
+      empty.textContent = 'No matches in this paste';
+      findResults.appendChild(empty);
+      return;
+    }
+
+    findMatches.forEach((match, index) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'find-result-btn';
+      btn.dataset.findIndex = String(index);
+      const excerpt = buildFindExcerpt(match.lineText, match.column, query);
+      btn.textContent = `L${match.line}:${match.column} ${excerpt}`;
+      findResults.appendChild(btn);
+    });
+  }
+
+  function flashElement(el: HTMLElement | null) {
+    if (!el) return;
+    el.classList.remove('find-flash');
+    // Restart animation for repeated jumps to the same match
+    void el.offsetWidth;
+    el.classList.add('find-flash');
+  }
+
+  function focusFindMatch(index: number, shouldScroll = true) {
+    if (!findMatches.length) return;
+
+    activeFindIndex = ((index % findMatches.length) + findMatches.length) % findMatches.length;
+    const match = findMatches[activeFindIndex];
+
+    document.querySelectorAll('.code-line.find-active-match').forEach(el => el.classList.remove('find-active-match'));
+    document.querySelectorAll('.line-number.find-active-match').forEach(el => el.classList.remove('find-active-match'));
+    document.querySelectorAll('.find-result-btn.active').forEach(el => el.classList.remove('active'));
+
+    match.lineEl.classList.add('find-active-match');
+    match.lineNumberEl?.classList.add('find-active-match');
+
+    const activeResultBtn = findResults?.querySelector(`.find-result-btn[data-find-index="${activeFindIndex}"]`) as HTMLElement | null;
+    activeResultBtn?.classList.add('active');
+    activeResultBtn?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+
+    if (shouldScroll) {
+      ensureCodeViewVisibleForFind();
+      match.lineEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    flashElement(match.lineEl);
+    flashElement(match.lineNumberEl);
+    updateFindCountLabel();
+  }
+
+  function refreshFindMatches(options: { keepIndex?: boolean; scrollToActive?: boolean } = {}) {
+    const query = (findInput?.value || '').trim();
+    findMatches = [];
+    activeFindIndex = options.keepIndex ? activeFindIndex : -1;
+    clearFindHighlights();
+
+    if (!query) {
+      renderFindResults();
+      updateFindCountLabel();
+      return;
+    }
+
+    const needle = query.toLowerCase();
+    const lines = getCodeLines();
+
+    lines.forEach((lineEl) => {
+      const lineText = lineEl.textContent || '';
+      if (!lineText && query) return;
+
+      const lineNo = parseInt(lineEl.dataset.line || '0', 10);
+      const lineNumberEl = document.querySelector(`.line-number[data-line="${lineNo}"]`) as HTMLElement | null;
+      const lowerLine = lineText.toLowerCase();
+      let fromIndex = 0;
+      let foundIndex = lowerLine.indexOf(needle, fromIndex);
+      let hasHit = false;
+
+      while (foundIndex !== -1) {
+        hasHit = true;
+        findMatches.push({
+          line: lineNo,
+          column: foundIndex + 1,
+          lineText,
+          lineEl,
+          lineNumberEl,
+        });
+        fromIndex = foundIndex + Math.max(needle.length, 1);
+        foundIndex = lowerLine.indexOf(needle, fromIndex);
+      }
+
+      if (hasHit) {
+        lineEl.classList.add('find-hit');
+        lineNumberEl?.classList.add('find-hit');
+      }
+    });
+
+    renderFindResults();
+
+    if (!findMatches.length) {
+      activeFindIndex = -1;
+      updateFindCountLabel();
+      return;
+    }
+
+    if (activeFindIndex < 0 || activeFindIndex >= findMatches.length) {
+      activeFindIndex = 0;
+    }
+
+    focusFindMatch(activeFindIndex, options.scrollToActive ?? true);
+  }
+
+  function jumpFindMatch(step: number) {
+    if (!findMatches.length) return;
+    focusFindMatch(activeFindIndex + step, true);
+  }
+
+  function openFindPanel() {
+    if (!findPanel || !findInput) return;
+    setFindOpen(true);
+    refreshFindMatches({ keepIndex: true, scrollToActive: false });
+  }
+
+  findBtn?.addEventListener('click', () => {
+    if (isFindOpen()) {
+      setFindOpen(false);
+      return;
+    }
+    openFindPanel();
+  });
+
+  findCloseBtn?.addEventListener('click', () => {
+    setFindOpen(false);
+  });
+
+  findInput?.addEventListener('input', () => {
+    refreshFindMatches({ scrollToActive: true });
+  });
+
+  findInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      jumpFindMatch(e.shiftKey ? -1 : 1);
+    }
+
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      setFindOpen(false);
+    }
+  });
+
+  findPrevBtn?.addEventListener('click', () => jumpFindMatch(-1));
+  findNextBtn?.addEventListener('click', () => jumpFindMatch(1));
+
+  findResults?.addEventListener('click', (e) => {
+    const target = (e.target as HTMLElement).closest('.find-result-btn') as HTMLElement | null;
+    if (!target) return;
+    const index = parseInt(target.dataset.findIndex || '-1', 10);
+    if (index >= 0) focusFindMatch(index, true);
+  });
+
+  // ========================================
   // Line Linking
   // ========================================
   let selectedLines: { start: number; end: number } | null = null;
@@ -582,9 +863,9 @@ const ogDescription = paste
   }
   
   // Line number click handling
-  lineNumbers?.addEventListener('click', (e) => {
-    const target = e.target as HTMLElement;
-    if (!target.classList.contains('line-number')) return;
+  document.addEventListener('click', (e) => {
+    const target = (e.target as HTMLElement).closest('.line-number') as HTMLElement | null;
+    if (!target) return;
     
     e.preventDefault();
     const clickedLine = parseInt(target.dataset.line || '1', 10);
@@ -610,7 +891,20 @@ const ogDescription = paste
   // Select All - only select paste content
   // ========================================
   document.addEventListener('keydown', (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
+    const target = e.target as HTMLElement | null;
+    const isTextInputTarget = !!target && (
+      target.tagName === 'INPUT' ||
+      target.tagName === 'TEXTAREA' ||
+      target.isContentEditable
+    );
+
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f' && findPanel && findInput) {
+      e.preventDefault();
+      openFindPanel();
+      return;
+    }
+
+    if ((e.metaKey || e.ctrlKey) && e.key === 'a' && !isTextInputTarget) {
       const codeContent = document.querySelector('.code-content');
       const mdPreview = document.getElementById('markdown-preview');
       
@@ -737,6 +1031,10 @@ const ogDescription = paste
           codeContainerEl.appendChild(lineNumbersEl);
           codeContainerEl.appendChild(preEl);
           pasteApp?.appendChild(codeContainerEl);
+        }
+
+        if (findPanel && findInput && isFindOpen()) {
+          refreshFindMatches({ keepIndex: false, scrollToActive: false });
         }
         
         // Update toolbar with badges and buttons
@@ -1020,6 +1318,106 @@ const ogDescription = paste
     display: none !important;
   }
 
+  .find-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 16px;
+    background-color: var(--surface);
+    border-bottom: 1px solid var(--outline);
+  }
+
+  .find-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .find-input {
+    flex: 1;
+    min-width: 120px;
+    padding: 7px 10px;
+    font-family: var(--font-family);
+    font-size: 0.85rem;
+    color: var(--text);
+    background-color: var(--surface-tint);
+    border: 1px solid var(--outline);
+    border-radius: 6px;
+  }
+
+  .find-input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .find-count {
+    font-size: 0.75rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .find-nav-btn,
+  .find-close-btn {
+    padding: 6px 10px;
+    font-family: var(--font-family);
+    font-size: 0.75rem;
+    color: var(--text);
+    background-color: var(--surface-tint);
+    border: 1px solid var(--outline);
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .find-nav-btn:hover,
+  .find-close-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .find-results {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    min-height: 30px;
+  }
+
+  .find-empty {
+    font-size: 0.75rem;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+  }
+
+  .find-result-btn {
+    flex: 0 0 auto;
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 5px 9px;
+    border: 1px solid var(--outline);
+    border-radius: 999px;
+    background-color: var(--surface-tint);
+    color: var(--muted);
+    font-family: var(--font-family);
+    font-size: 0.72rem;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .find-result-btn:hover {
+    border-color: var(--accent);
+    color: var(--text);
+  }
+
+  .find-result-btn.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background-color: rgba(79, 70, 229, 0.08);
+  }
+
   .code-container {
     flex: 1;
     display: flex;
@@ -1192,6 +1590,15 @@ const ogDescription = paste
     color: var(--accent);
   }
 
+  .line-number.find-hit {
+    background-color: rgba(79, 70, 229, 0.06);
+  }
+
+  .line-number.find-active-match {
+    background-color: rgba(79, 70, 229, 0.2);
+    color: var(--accent);
+  }
+
   .code-content {
     flex: 1;
     margin: 0;
@@ -1217,6 +1624,26 @@ const ogDescription = paste
 
   .code-line.highlighted {
     background-color: rgba(79, 70, 229, 0.15);
+  }
+
+  .code-line.find-hit {
+    background-color: rgba(79, 70, 229, 0.06);
+  }
+
+  .code-line.find-active-match {
+    background-color: rgba(79, 70, 229, 0.18);
+    outline: 1px solid rgba(79, 70, 229, 0.28);
+  }
+
+  .code-line.find-flash,
+  .line-number.find-flash {
+    animation: find-flash 900ms ease;
+  }
+
+  @keyframes find-flash {
+    0% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0); }
+    30% { box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.22); }
+    100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0); }
   }
 
   /* Shiki theme switching */
@@ -1500,6 +1927,34 @@ const ogDescription = paste
 
   /* Mobile adjustments */
   @media (max-width: 640px) {
+    .find-panel {
+      padding: 8px 12px;
+      gap: 6px;
+    }
+
+    .find-controls {
+      flex-wrap: wrap;
+    }
+
+    .find-input {
+      min-width: 100%;
+      order: 1;
+    }
+
+    .find-count {
+      order: 2;
+    }
+
+    .find-nav-btn,
+    .find-close-btn {
+      order: 3;
+      padding: 5px 8px;
+    }
+
+    .find-result-btn {
+      max-width: 220px;
+    }
+
     .toolbar {
       padding: 0 12px;
       height: 44px;
