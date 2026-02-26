@@ -36,7 +36,7 @@ import Layout from '../layouts/Layout.astro';
         <h1>BUILDING<br/>STUFF<br/>THAT WORKS.</h1>
         <p class="subtitle">Software Development Engineer</p>
         <p class="bio">
-          Focused on React Native and full-stack product velocity. Currently shipping rider-first experiences at <span class="highlight">Zepto</span>. I chase clean performance, love fitness, bikes, and I'm deep into AI agents with a soft spot for RN and C++ tooling.
+          Software Development Engineer focused on React Native, native modules, and full-stack product velocity. Currently shipping rider-first experiences at <span class="highlight">Zepto</span>. I care about performance, testing, clean mobile architecture, and building products that feel fast, useful, and durable.
         </p>
       </section>
 
@@ -103,7 +103,8 @@ import Layout from '../layouts/Layout.astro';
               <span class="exp-date">Oct 24 — Present</span>
             </div>
             <p class="exp-role">SDE · Bengaluru</p>
-            <p class="exp-detail">Unlocked new revenue with flexible rider onboarding flow. Modernized background actions reducing crash rates.</p>
+            <p class="exp-detail">Built revenue-generating rider onboarding and referral systems, including dynamic flows, city-level ratecards, and earnings visibility. Improved app stability to 99.97% crash-free and shipped JSON-driven UI/forms for faster product iteration.</p>
+            <p class="exp-detail exp-tech">React Native · Android/iOS · APIs · Forms/Validation · Performance · CI/CD · OTA-style updates · Testing</p>
           </div>
           <div class="exp-item">
             <div class="exp-header">
@@ -111,7 +112,8 @@ import Layout from '../layouts/Layout.astro';
               <span class="exp-date">Oct 22 — Oct 24</span>
             </div>
             <p class="exp-role">SDE · Pune</p>
-            <p class="exp-detail">Shipped revenue-driving React Native features. Integrated Bluetooth medical data, Apple HealthKit & Fitpass.</p>
+            <p class="exp-detail">Shipped high-impact React Native features with measurable revenue impact, integrated Bluetooth glucometer data, and built native iOS capabilities (HealthKit SDK in Swift) while expanding platform integrations like Fitpass and CleverTap.</p>
+            <p class="exp-detail exp-tech">React Native · Swift · Kotlin/Java · Native Modules · Xcode · Android Studio · Jest/Detox · App Store / Play Store releases</p>
           </div>
         </div>
       </section>
@@ -120,6 +122,13 @@ import Layout from '../layouts/Layout.astro';
       <section class="bento-item other-projects-card">
         <h2>OTHER WORKS</h2>
         <div class="other-projects-list">
+          <a href="https://github.com/ayushneekhar/Apex" target="_blank" rel="noreferrer" class="other-project">
+            <div class="op-header">
+              <h3>Apex</h3>
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg>
+            </div>
+            <p>A no-BS workout tracker focused on fast logging, clean UX, and a practical mobile experience without the usual bloat.</p>
+          </a>
           <a href="https://github.com/ayushneekhar/rn-turbo-secure-storage" target="_blank" rel="noreferrer" class="other-project">
             <div class="op-header">
               <h3>rn-turbo-secure-storage</h3>
@@ -148,6 +157,7 @@ import Layout from '../layouts/Layout.astro';
     display: flex;
     flex-direction: column;
     gap: 48px;
+    font-family: var(--font-mono);
   }
 
   /* Top Bar */
@@ -482,6 +492,13 @@ import Layout from '../layouts/Layout.astro';
   .exp-detail {
     margin: 8px 0 0 0;
     line-height: 1.5;
+  }
+
+  .exp-tech {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    color: var(--muted);
+    line-height: 1.6;
   }
 
   /* 7. Other Projects */
