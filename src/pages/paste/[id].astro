@@ -809,6 +809,26 @@ const ogDescription = paste
     if (index >= 0) focusFindMatch(index, true);
   });
 
+  function isFindShortcut(event: KeyboardEvent) {
+    if (!(event.metaKey || event.ctrlKey) || event.altKey) return false;
+    const key = (event.key || '').toLowerCase();
+    return key === 'f' || event.code === 'KeyF';
+  }
+
+  function interceptFindShortcut(event: KeyboardEvent) {
+    if (!findPanel || !findInput) return;
+    if (!isFindShortcut(event)) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation?.();
+    openFindPanel();
+  }
+
+  // Intercept browser find as early as possible.
+  window.addEventListener('keydown', interceptFindShortcut, { capture: true });
+  document.addEventListener('keydown', interceptFindShortcut, { capture: true });
+
   // ========================================
   // Line Linking
   // ========================================
@@ -891,6 +911,8 @@ const ogDescription = paste
   // Select All - only select paste content
   // ========================================
   document.addEventListener('keydown', (e) => {
+    if (e.defaultPrevented) return;
+
     const target = e.target as HTMLElement | null;
     const isTextInputTarget = !!target && (
       target.tagName === 'INPUT' ||
