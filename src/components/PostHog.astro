@@ -1,0 +1,36 @@
+---
+// Client-side PostHog analytics initialization (bundled by Astro/Vite)
+---
+
+<script>
+  import posthog from 'posthog-js';
+
+  if (import.meta.env.PROD) {
+    const key =
+      import.meta.env.PUBLIC_POSTHOG_KEY ||
+      'phc_rBXrFG8Hbf9nB7L6cKWHMtBunbfJp4vxPmF9ckG5yPxF';
+    const host =
+      import.meta.env.PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com';
+
+    const win = window as Window & { __posthogInitialized?: boolean };
+
+    if (!win.__posthogInitialized) {
+      posthog.init(key, {
+        api_host: host,
+        person_profiles: 'identified_only',
+        capture_pageview: true,
+        capture_pageleave: true,
+      });
+      win.__posthogInitialized = true;
+
+      let initialLoadHandled = false;
+      document.addEventListener('astro:page-load', () => {
+        if (!initialLoadHandled) {
+          initialLoadHandled = true;
+          return;
+        }
+        posthog.capture('$pageview');
+      });
+    }
+  }
+</script>
